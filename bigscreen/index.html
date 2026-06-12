@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="hu">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nanoportal — nagy kijelző</title>
+    <link rel="stylesheet" href="/shared/css/theme.css" />
+    <link rel="stylesheet" href="/bigscreen/bigscreen.css" />
+  </head>
+  <body>
+    <div id="bigscreen-root" class="bigscreen-root" data-active-layer="window">
+      <section class="bigscreen-layer is-active" data-layer="window" id="layer-window" aria-hidden="false">
+        <img id="layer-window-img" class="layer-window-img" alt="" />
+      </section>
+
+      <section class="bigscreen-layer hidden" data-layer="media" id="layer-media" aria-hidden="true">
+        <video id="layer-media-video" playsinline muted autoplay loop></video>
+        <audio id="layer-media-audio" loop></audio>
+      </section>
+
+      <section class="bigscreen-layer hidden layer-celebration" data-layer="celebration" id="layer-celebration" aria-hidden="true">
+        <div class="celebration-bg" aria-hidden="true"></div>
+        <img class="celebration-photo" alt="" />
+        <p class="celebration-name"></p>
+      </section>
+    </div>
+
+    <p class="bigscreen-sync" id="bigscreen-sync" aria-live="polite">BIG // …</p>
+
+    <script type="module" src="/bigscreen/bigscreen.js"></script>
+  </body>
+</html>

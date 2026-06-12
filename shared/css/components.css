@@ -1,0 +1,89 @@
+/* Shared UI components — built on theme.css tokens */
+
+.panel-block {
+  padding: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.panel-block h2 {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-display);
+  letter-spacing: var(--tracking-hud);
+  font-size: var(--text-sm);
+  color: var(--cyan-300);
+  text-shadow: 0 0 5px color-mix(in srgb, var(--cyan-400) 45%, transparent);
+}
+
+.btn-neon.btn-danger {
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--danger) 12%, transparent),
+    rgba(40, 0, 10, 0.35)
+  );
+}
+
+.btn-neon.btn-success {
+  border-color: color-mix(in srgb, var(--success) 55%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--success) 10%, transparent),
+    rgba(0, 40, 20, 0.35)
+  );
+}
+
+.field-input,
+.players-field {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  border: var(--border-width) solid color-mix(in srgb, var(--cyan-400) 35%, transparent);
+  background: color-mix(in srgb, var(--void-850) 85%, transparent);
+  color: var(--text-bright);
+  font-family: var(--font-mono);
+  font-size: var(--text-md);
+}
+
+.field-input:focus-visible,
+.players-field:focus-visible,
+.btn-neon:focus-visible,
+.choice-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: var(--border-width) solid color-mix(in srgb, var(--cyan-400) 35%, transparent);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-kicker);
+  text-transform: uppercase;
+  color: var(--cyan-300);
+  background: color-mix(in srgb, var(--void-800) 55%, transparent);
+}
+
+.hud-label {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-hud);
+  text-transform: uppercase;
+  color: var(--cyan-300);
+}
+
+.text-hero {
+  font-family: var(--font-display);
+  font-size: var(--text-hero);
+  line-height: var(--leading-tight);
+  color: var(--text-bright);
+}
+
+.text-body {
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  color: var(--text-soft);
+}

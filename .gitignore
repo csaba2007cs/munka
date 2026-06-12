@@ -1,0 +1,19 @@
+# Runtime / generated
+data/photobooth_*.jpg
+data/*.jpg
+*.log
+
+# OS / editor
+Thumbs.db
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# Secrets (if added later)
+.env
+.env.*
+
+# Optional local assets (uncomment if you add large media and do not want them in git)
+# shared/assets/audio/
+# shared/assets/video/

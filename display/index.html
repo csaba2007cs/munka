@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="hu">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NANOPORTAL — Fő kijelző</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Roboto+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/shared/css/theme.css" />
+    <link rel="stylesheet" href="/shared/css/components.css" />
+    <link rel="stylesheet" href="/display/display.css" />
+  </head>
+  <body>
+    <div class="app-frame display-root">
+      <div class="hud-title">NANOPORTAL // PRIMÁRIS VETÍTŐ</div>
+      <div class="hud-sub" id="display-sync">UPDATED // …</div>
+
+      <section class="display-stage" aria-label="Háttér videó">
+        <video id="bg-video" playsinline muted></video>
+        <div class="display-overlay"></div>
+        <div class="display-hud" id="display-hud"></div>
+      </section>
+
+      <section class="window-panel">
+        <div class="panel window-viewport" aria-label="Kamera ablak — inverzió">
+          <video id="cam-feed" playsinline autoplay muted></video>
+          <div class="window-frame"></div>
+          <div class="window-label">KÜLSŐ TÉR // TABLET KAMERA</div>
+        </div>
+        <aside class="panel side-readout">
+          <div class="readout-line"><strong>Megjegyzés:</strong> Állíts be MJPEG / WebRTC URL-t a <code>state.display.camera_feed_url</code> mezőben, vagy streamelj Node-RED-ből ide.</div>
+          <div class="readout-line"><strong>Háttérhang:</strong> <code>/shared/assets/audio/</code></div>
+          <div class="readout-line"><strong>Háttérvideó:</strong> <code>/shared/assets/video/</code></div>
+        </aside>
+      </section>
+
+      <audio id="bg-audio"></audio>
+    </div>
+
+    <script type="module" src="/display/display.js"></script>
+  </body>
+</html>

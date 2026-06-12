@@ -1,0 +1,88 @@
+{
+  "status": "COMPLETED",
+  "current_step": 4,
+  "players": [
+    {
+      "id": 1,
+      "name": "dwadawdawdawdawadaw"
+    }
+  ],
+  "pending_registrations": [
+    {
+      "id": 1,
+      "name": "cs2 team analyser",
+      "at": "2026-05-17T13:07:34Z"
+    },
+    {
+      "id": 2,
+      "name": "cs2 team analyser",
+      "at": "2026-05-17T13:07:47Z"
+    }
+  ],
+  "players_confirmed": false,
+  "quiz_state": {
+    "hero_title": "KIKÉPZÉSI MODUL LEZÁRVA",
+    "hero_subtitle": "Kutatói alkalmassági ellenőrzés folyamatban",
+    "header_status": "Kutatói alkalmassági ellenőrzés folyamatban",
+    "task_label": "4. FELADAT",
+    "question_text": "Melyik faj tojásából kell mintát szereznetek?",
+    "current_question_id": 4,
+    "question_title": "1. FELADAT: Melyik faj tojásából kell mintát szereznetek?",
+    "options": [
+      {
+        "id": "a",
+        "label": "Tyrannotitan"
+      },
+      {
+        "id": "b",
+        "label": "Patagotitan"
+      },
+      {
+        "id": "c",
+        "label": "ismeretlen kisragadozó"
+      }
+    ],
+    "correct_option_id": "b",
+    "selected_answer": null,
+    "validation": "idle",
+    "feedback_visible": false,
+    "feedback_instruction": "UV-fénnyel vizsgáljátok meg a tojásrakó helyhez kapcsolódó képet.",
+    "sidebar_title": "VIZSGA FOLYAMAT",
+    "sidebar_items": [
+      {
+        "id": "celpont",
+        "label": "célpont",
+        "done": true
+      },
+      {
+        "id": "fenyegetes",
+        "label": "fenyegetés",
+        "done": false
+      },
+      {
+        "id": "mintavetel",
+        "label": "mintavétel",
+        "done": false
+      },
+      {
+        "id": "mozgasi",
+        "label": "mozgási korlát",
+        "done": false
+      }
+    ],
+    "hud_scan_percent": 97,
+    "hud_footer": "NP-SYS // MISSION MODULE",
+    "footer_left": "A múltban nincs második esély."
+  },
+  "display": {
+    "background_audio": "ambient_loop_placeholder.mp3",
+    "background_video": "phase_01_placeholder.mp4",
+    "camera_feed_url": ""
+  },
+  "audio": {
+    "last_triggered": null,
+    "last_placeholder": null,
+    "queue": []
+  },
+  "updated_at": "2026-05-17T13:08:45Z"
+}

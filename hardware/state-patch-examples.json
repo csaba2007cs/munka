@@ -1,0 +1,56 @@
+{
+  "description": "Példa JSON törzsek POST /api/state.php számára (Node-RED HTTP Request node-ból vagy ESP32 gateway-ből).",
+  "examples": [
+    {
+      "title": "ESP32 / Node-RED: hardware jelölő mező (opcionális kulcs)",
+      "body": {
+        "hardware": {
+          "last_sensor_event": {
+            "device": "esp32-zone-a",
+            "type": "motion",
+            "at": "2026-05-17T12:00:00Z"
+          }
+        }
+      }
+    },
+    {
+      "title": "Háttérváltás a nagy TV-n",
+      "body": {
+        "display": {
+          "background_video": "phase_02_placeholder.mp4",
+          "background_audio": "ambient_loop_placeholder.mp3"
+        }
+      }
+    },
+    {
+      "title": "Operátori kamera URL frissítése (vagy admin UI helyett)",
+      "body": {
+        "display": {
+          "camera_feed_url": "http://192.168.4.1:8080/video.mjpg"
+        }
+      }
+    },
+    {
+      "title": "Mobilmozi v2: nagy kijelző réteg (MQTT: mobilmozi/screen/big/layer)",
+      "body": {
+        "screens": {
+          "big": { "layer": "celebration" }
+        }
+      }
+    },
+    {
+      "title": "Mobilmozi v2: érintőképernyő kvíz réteg (MQTT: mobilmozi/screen/small/layer)",
+      "body": {
+        "screens": {
+          "small": { "layer": "quiz", "touch_enabled": true }
+        }
+      }
+    },
+    {
+      "title": "Mobilmozi v2: show indítás (MQTT: mobilmozi/show/command)",
+      "body": {
+        "status": "RUNNING"
+      }
+    }
+  ]
+}

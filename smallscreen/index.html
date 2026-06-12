@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="hu" class="quiz-page">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nanoportal — érintőképernyő</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600&family=Roboto+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/shared/css/theme.css" />
+    <link rel="stylesheet" href="/shared/css/components.css" />
+    <link rel="stylesheet" href="/quiz/quiz.css" />
+    <link rel="stylesheet" href="/smallscreen/smallscreen.css" />
+  </head>
+  <body>
+    <div id="smallscreen-root" class="smallscreen-root" data-active-layer="idle">
+      <section class="smallscreen-layer is-active" data-layer="idle" id="layer-idle" aria-hidden="false">
+        <img id="layer-idle-img" class="layer-idle-img" src="/shared/assets/images/small-idle.svg" alt="Várakozás" />
+      </section>
+
+      <section class="smallscreen-layer hidden" data-layer="media" id="layer-media-wrap" aria-hidden="true">
+        <video id="layer-media-video" playsinline muted autoplay loop></video>
+        <audio id="layer-media-audio" loop></audio>
+      </section>
+
+      <section class="smallscreen-layer hidden" data-layer="quiz" id="layer-quiz" aria-hidden="true"></section>
+    </div>
+
+    <p class="smallscreen-sync" id="smallscreen-sync" aria-live="polite">SMALL // …</p>
+
+    <script type="module" src="/smallscreen/smallscreen.js"></script>
+  </body>
+</html>

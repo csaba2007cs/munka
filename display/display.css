@@ -1,0 +1,106 @@
+.display-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.display-stage {
+  position: relative;
+  flex: 1;
+  min-height: 52vh;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid rgba(0, 191, 255, 0.22);
+  background: #000;
+}
+
+.display-stage video#bg-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(1.05) contrast(1.05);
+}
+
+.display-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 110%, rgba(0, 191, 255, 0.12), transparent 55%),
+    linear-gradient(180deg, rgba(1, 6, 12, 0.1), rgba(1, 6, 12, 0.72));
+}
+
+.display-hud {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.window-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 12px;
+  min-height: 34vh;
+}
+
+@media (max-width: 1100px) {
+  .window-panel {
+    grid-template-columns: 1fr;
+  }
+}
+
+.window-viewport {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid rgba(0, 191, 255, 0.35);
+  background: radial-gradient(circle at 50% 40%, rgba(0, 191, 255, 0.12), rgba(0, 6, 12, 0.92));
+  min-height: 260px;
+}
+
+.window-viewport video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.window-frame {
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(0, 191, 255, 0.35);
+  box-shadow: inset 0 0 40px rgba(0, 191, 255, 0.12);
+  pointer-events: none;
+}
+
+.window-label {
+  position: absolute;
+  left: 12px;
+  bottom: 10px;
+  font-family: var(--font-display);
+  letter-spacing: 0.18em;
+  font-size: 0.72rem;
+  color: var(--cyan-300);
+  text-shadow: 0 0 6px rgba(0, 191, 255, 0.55);
+}
+
+.side-readout {
+  padding: 14px;
+}
+
+.readout-line {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.readout-line strong {
+  color: var(--cyan-300);
+  text-shadow: 0 0 5px rgba(0, 191, 255, 0.35);
+}

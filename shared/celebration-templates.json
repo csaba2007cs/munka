@@ -1,0 +1,40 @@
+{
+  "crowd_europe": {
+    "label": "Európai tömeg",
+    "background": "/shared/assets/celebration/crowd-europe.png",
+    "photo": {
+      "left": "39%",
+      "top": "24%",
+      "width": "19%",
+      "transform": "rotate(-4deg) skewY(-0.5deg)"
+    },
+    "name": {
+      "left": "34%",
+      "top": "47%",
+      "width": "32%",
+      "transform": "rotate(-4deg)",
+      "fontSize": "clamp(1.4rem, 3.2vw, 3rem)",
+      "fontWeight": "800",
+      "color": "#1a1a1a"
+    }
+  },
+  "crowd_nyc": {
+    "label": "NYC tömeg",
+    "background": "/shared/assets/celebration/crowd-nyc.png",
+    "photo": {
+      "left": "41%",
+      "top": "22%",
+      "width": "17%",
+      "transform": "rotate(3deg) skewY(0.5deg)"
+    },
+    "name": {
+      "left": "36%",
+      "top": "44%",
+      "width": "30%",
+      "transform": "rotate(3deg)",
+      "fontSize": "clamp(1.4rem, 3.2vw, 3rem)",
+      "fontWeight": "800",
+      "color": "#1a1a1a"
+    }
+  }
+}

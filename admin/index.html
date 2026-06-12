@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="hu">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Nanoportal — operátor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@500;600;700&family=Roboto+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/shared/css/theme.css" />
+    <link rel="stylesheet" href="/shared/css/components.css" />
+    <link rel="stylesheet" href="/admin/admin.css" />
+  </head>
+  <body>
+    <div class="app-frame admin-root">
+      <header class="admin-header">
+        <p class="admin-brand">Nanoportal — operátor</p>
+        <div id="status-banner" class="status-banner is-idle" role="status" aria-live="polite">
+          <span class="status-banner__label">Betöltés…</span>
+          <span class="status-banner__meta" id="status-banner-meta"></span>
+        </div>
+        <nav class="admin-tabs" role="tablist" aria-label="Nézetek">
+          <button
+            type="button"
+            role="tab"
+            id="tab-control"
+            class="admin-tab is-active"
+            aria-selected="true"
+            aria-controls="view-control"
+          >
+            Irányítás
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="tab-photobooth"
+            class="admin-tab"
+            aria-selected="false"
+            aria-controls="view-photobooth"
+          >
+            Photobooth
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="tab-visitors"
+            class="admin-tab"
+            aria-selected="false"
+            aria-controls="view-visitors"
+          >
+            Látogatók
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="tab-screens"
+            class="admin-tab"
+            aria-selected="false"
+            aria-controls="view-screens"
+          >
+            Képernyők
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="tab-hardware"
+            class="admin-tab"
+            aria-selected="false"
+            aria-controls="view-hardware"
+          >
+            Hardver
+          </button>
+        </nav>
+        <p class="admin-sync-line hud-sub" id="admin-sync" aria-live="polite">Szinkronizálás…</p>
+      </header>
+
+      <main class="admin-main">
+        <section
+          id="view-control"
+          class="admin-view"
+          role="tabpanel"
+          aria-labelledby="tab-control"
+        >
+          <div class="panel panel-block">
+            <h2 class="section-title">Élmény vezérlése</h2>
+            <p class="section-lead" id="control-hint">
+              Ellenőrizd a névsort, majd indítsd az élményt. Szünet és folytatás futás közben.
+            </p>
+            <div class="controls-primary">
+              <button type="button" class="btn-neon btn-success btn-primary-action" id="btn-start">
+                Indítás
+              </button>
+              <button type="button" class="btn-neon btn-primary-action" id="btn-pause">Szünet</button>
+              <button type="button" class="btn-neon btn-primary-action" id="btn-resume">Folytatás</button>
+            </div>
+          </div>
+
+          <div class="panel panel-block">
+            <h2 class="section-title">Névsor</h2>
+            <p class="section-lead">Egy név soronként. Mentés után jelöld véglegesnek, ha rendben van.</p>
+            <label class="field-label" for="players-input">Játékosok nevei</label>
+            <textarea
+              id="players-input"
+              class="players-field field-input"
+              placeholder="Kovács Anna&#10;Nagy Péter"
+              aria-describedby="players-confirmed-hint"
+            ></textarea>
+            <div class="action-row">
+              <button type="button" class="btn-neon" id="btn-players-save">Névsor mentése</button>
+              <button type="button" class="btn-neon btn-success" id="btn-players-confirmed">
+                Névsor rendben
+              </button>
+            </div>
+            <p class="hint-text" id="players-confirmed-hint"></p>
+          </div>
+
+          <div class="panel panel-block">
+            <h2 class="section-title">Tablet regisztrációk</h2>
+            <p class="section-lead">A látogatók a regisztrációs tableten adják meg a nevüket.</p>
+            <ul class="pending-list" id="pending-list" aria-label="Várólista"></ul>
+            <div class="action-row">
+              <button type="button" class="btn-neon btn-success" id="btn-pending-import">
+                Összes névsorba
+              </button>
+              <button type="button" class="btn-neon btn-danger" id="btn-pending-clear">
+                Várólista törlése
+              </button>
+            </div>
+          </div>
+
+          <div class="panel panel-block">
+            <h2 class="section-title">Hangok</h2>
+            <p class="hud-sub" id="last-audio">Utolsó hang: —</p>
+            <div class="audio-grid" id="audio-grid"></div>
+          </div>
+
+          <details class="panel panel-block admin-advanced">
+            <summary class="section-title section-title--summary">Haladó beállítások</summary>
+            <div class="admin-advanced__body">
+              <h3 class="subsection-title">Nagy kijelző — kamera</h3>
+              <p class="section-lead">Stream URL, amit a fő TV megjelenít (pl. MJPEG).</p>
+              <label class="field-label" for="camera-feed-url">Kamera címe</label>
+              <input
+                type="url"
+                id="camera-feed-url"
+                class="field-input"
+                placeholder="https://…"
+                autocomplete="off"
+              />
+              <div class="action-row">
+                <button type="button" class="btn-neon" id="btn-camera-save">Kamera URL mentése</button>
+              </div>
+
+              <h3 class="subsection-title">ElevenLabs (később)</h3>
+              <p class="section-lead">Helyőrző — éles szinkronhang későbbi körben.</p>
+              <label class="field-label" for="tts-text">Szöveg</label>
+              <textarea
+                id="tts-text"
+                class="field-input tts-field"
+                placeholder="Szintetizálandó szöveg…"
+              ></textarea>
+              <div class="action-row">
+                <button type="button" class="btn-neon" id="tts-send">TTS jelölés</button>
+              </div>
+            </div>
+          </details>
+
+          <div class="panel panel-block admin-danger-zone">
+            <h2 class="section-title section-title--danger">Veszélyes műveletek</h2>
+            <p class="section-lead">
+              Ezek megszakítják vagy nullázzák az élményt. Csak akkor használd, ha biztos vagy benne.
+            </p>
+            <div class="danger-grid">
+              <button
+                type="button"
+                class="btn-neon btn-danger"
+                id="btn-stop"
+                title="Élmény megszakít, kvíz zárol. Újraindítható."
+              >
+                Megszakítás
+              </button>
+              <button
+                type="button"
+                class="btn-neon btn-danger"
+                id="btn-end-session"
+                title="Kör formálisan lezárva."
+              >
+                Lezárás
+              </button>
+              <button type="button" class="btn-neon btn-danger" id="btn-reset">Teljes reset</button>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="view-photobooth"
+          class="admin-view hidden"
+          role="tabpanel"
+          aria-labelledby="tab-photobooth"
+          hidden
+        >
+          <div class="panel panel-block photobooth">
+            <div class="photobooth-capture">
+              <h2 class="section-title">1. Kamera</h2>
+              <p class="section-lead">Indítsd a kamerát, majd készíts felvételt (3 mp visszaszámlálás).</p>
+              <p class="hint-text" id="cam-secure-hint" hidden></p>
+              <div class="video-wrap" id="cam-live-wrap">
+                <video id="cam-preview" playsinline autoplay muted></video>
+              </div>
+              <input type="file" id="cam-file-fallback" class="hidden" accept="image/*" capture="user" />
+              <div class="action-row shutter-row">
+                <button type="button" class="btn-neon" id="cam-start">Kamera be</button>
+                <button type="button" class="btn-neon" id="cam-file-pick">Fájl / galéria</button>
+                <button type="button" class="btn-neon btn-danger" id="cam-stop">Kamera ki</button>
+                <div class="countdown" id="countdown" aria-live="polite" aria-label="Visszaszámlálás"></div>
+                <button type="button" class="btn-neon btn-cta" id="cam-capture">Felvétel</button>
+              </div>
+              <canvas id="cam-canvas" class="hidden" aria-hidden="true"></canvas>
+            </div>
+
+            <div class="photobooth-preview hidden" id="preview-panel">
+              <h2 class="section-title">2. Ellenőrzés</h2>
+              <p class="section-lead">Ha megfelel, töltsd fel. Ha nem, készíts új fotót.</p>
+              <img id="preview-shot" class="preview-shot" alt="Előnézet" />
+              <div class="action-row preview-actions">
+                <button type="button" class="btn-neon btn-success" id="cam-upload">Feltöltés</button>
+                <button type="button" class="btn-neon" id="cam-retake">Újrafotó</button>
+                <button type="button" class="btn-neon btn-danger" id="cam-cancel-preview">Mégse</button>
+              </div>
+            </div>
+
+            <div class="photobooth-uploaded hidden" id="uploaded-panel">
+              <h2 class="section-title">3. Kész</h2>
+              <img id="last-shot" class="preview-shot" alt="Utolsó feltöltött fotó" />
+              <div class="action-row">
+                <button type="button" class="btn-neon btn-cta" id="cam-new-shot">Új kép</button>
+              </div>
+            </div>
+
+            <div class="photobooth-recent">
+              <h2 class="section-title">Utolsó feltöltések</h2>
+              <ul class="upload-grid" id="upload-recent-list"></ul>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="view-visitors"
+          class="admin-view hidden"
+          role="tabpanel"
+          aria-labelledby="tab-visitors"
+          hidden
+        >
+          <div class="panel panel-block">
+            <h2 class="section-title">Látogatók (2–6 fő)</h2>
+            <p class="section-lead">Fotó és becenév a gratulációs képernyőhöz.</p>
+            <ul class="visitor-list" id="visitor-list" aria-label="Látogatók listája"></ul>
+          </div>
+
+          <div class="panel panel-block">
+            <h2 class="section-title">Új látogató</h2>
+            <label class="field-label" for="visitor-nickname">Becenév</label>
+            <input type="text" id="visitor-nickname" class="field-input" maxlength="24" autocomplete="off" />
+            <p class="hint-text" id="visitor-camera-hint"></p>
+            <div class="video-wrap" id="visitor-cam-wrap">
+              <video id="visitor-cam-preview" playsinline autoplay muted></video>
+            </div>
+            <input type="file" id="visitor-file-fallback" class="hidden" accept="image/*" capture="user" />
+            <div class="action-row">
+              <button type="button" class="btn-neon" id="visitor-cam-start">Kamera be</button>
+              <button type="button" class="btn-neon" id="visitor-cam-capture">Felvétel</button>
+              <button type="button" class="btn-neon" id="visitor-file-pick">Fájl / galéria</button>
+              <button type="button" class="btn-neon btn-success" id="visitor-save">Mentés</button>
+            </div>
+            <img id="visitor-preview-shot" class="preview-shot hidden" alt="Előnézet" />
+          </div>
+
+          <div class="panel panel-block">
+            <h2 class="section-title">Csoport elérhetőség (opcionális)</h2>
+            <label class="field-label" for="group-email">E-mail</label>
+            <input type="email" id="group-email" class="field-input" autocomplete="email" />
+            <label class="field-label" for="group-phone">Telefon</label>
+            <input type="tel" id="group-phone" class="field-input" autocomplete="tel" />
+            <div class="action-row">
+              <button type="button" class="btn-neon" id="btn-group-contact-save">Elérhetőség mentése</button>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="view-screens"
+          class="admin-view hidden"
+          role="tabpanel"
+          aria-labelledby="tab-screens"
+          hidden
+        >
+          <div class="panel panel-block">
+            <h2 class="section-title">Nagy kijelző (60")</h2>
+            <p class="section-lead" id="big-layer-status">Réteg: —</p>
+            <div class="screen-btn-grid">
+              <button type="button" class="btn-neon" data-big-layer="window">Ablakfotó</button>
+              <button type="button" class="btn-neon" data-big-layer="media">Videó / hang</button>
+              <button type="button" class="btn-neon" data-big-layer="celebration">Gratuláció</button>
+            </div>
+          </div>
+
+          <div class="panel panel-block">
+            <h2 class="section-title">Ablakfotó feltöltés</h2>
+            <p class="section-lead">Operátor fotója a sátorfal „ablakához”.</p>
+            <input type="file" id="window-photo-input" accept="image/*" capture="environment" />
+            <div class="action-row">
+              <button type="button" class="btn-neon btn-success" id="btn-window-upload">Ablakfotó mentése</button>
+            </div>
+            <img id="window-preview" class="preview-shot" alt="Ablak előnézet" hidden />
+          </div>
+
+          <div class="panel panel-block">
+            <h2 class="section-title">Érintőképernyő (21")</h2>
+            <p class="section-lead" id="small-layer-status">Réteg: —</p>
+            <div class="screen-btn-grid">
+              <button type="button" class="btn-neon" data-small-layer="idle">Várakozás</button>
+              <button type="button" class="btn-neon" data-small-layer="media">Videó / hang</button>
+              <button type="button" class="btn-neon" data-small-layer="quiz">Kvíz</button>
+            </div>
+          </div>
+        </section>
+
+        <section
+          id="view-hardware"
+          class="admin-view hidden"
+          role="tabpanel"
+          aria-labelledby="tab-hardware"
+          hidden
+        >
+          <div class="panel panel-block">
+            <h2 class="section-title">Kapcsolat</h2>
+            <p id="hardware-connection" class="hardware-status hardware-status--idle" role="status">
+              Nincs adat
+            </p>
+            <p class="section-lead">
+              Aktív, ha az utolsó szenzorjel 2 percen belül érkezett (ESP32 / Node-RED / teszt gomb).
+            </p>
+          </div>
+
+          <div class="panel panel-block">
+            <h2 class="section-title">Utolsó esemény</h2>
+            <dl class="hardware-last-event" id="hardware-last-event">
+              <div>
+                <dt>Eszköz</dt>
+                <dd id="hardware-last-device">—</dd>
+              </div>
+              <div>
+                <dt>Típus</dt>
+                <dd id="hardware-last-type">—</dd>
+              </div>
+              <div>
+                <dt>Idő</dt>
+                <dd id="hardware-last-at">—</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div class="panel panel-block">
+            <h2 class="section-title">Zóna állapot</h2>
+            <div class="hardware-zones" id="hardware-zones"></div>
+          </div>
+
+          <div class="panel panel-block">
+            <h2 class="section-title">Eseménynapló</h2>
+            <ul class="hardware-log" id="hardware-event-log" aria-live="polite"></ul>
+            <div class="action-row">
+              <button type="button" class="btn-neon btn-danger" id="btn-hardware-clear-log">
+                Napló törlése
+              </button>
+            </div>
+          </div>
+
+          <div class="panel panel-block">
+            <h2 class="section-title">Teszt és vezérlés</h2>
+            <p class="section-lead">
+              Teszt patch a state API felé — hasznos Node-RED / ESP32 bekötés előtt.
+            </p>
+            <div class="hardware-test-grid">
+              <button type="button" class="btn-neon" id="btn-hw-test-motion">
+                Teszt: mozgás (zóna A)
+              </button>
+              <button type="button" class="btn-neon" id="btn-hw-test-door">
+                Teszt: ajtó nyitva
+              </button>
+              <button type="button" class="btn-neon" id="btn-hw-led-a-on">
+                LED zóna A — be
+              </button>
+              <button type="button" class="btn-neon" id="btn-hw-led-a-off">
+                LED zóna A — ki
+              </button>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="admin-toast" class="admin-toast" role="alert" aria-live="assertive" hidden></div>
+
+    <script type="module" src="/admin/admin.js"></script>
+  </body>
+</html>

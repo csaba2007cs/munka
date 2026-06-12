@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="hu">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NANOPORTAL — Regisztráció</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@500;600&family=Roboto+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/shared/css/theme.css" />
+    <link rel="stylesheet" href="/shared/css/components.css" />
+    <link rel="stylesheet" href="/register/register.css" />
+  </head>
+  <body>
+    <div class="app-frame register-root">
+      <header class="reg-header">
+        <p class="reg-kicker">NANOPORTAL // BELÉPÉS</p>
+        <h1 class="reg-title">Regisztráció</h1>
+        <p class="reg-lead">Add meg a megjelenítendő neved. Az operátor a névsorba emeli, mielőtt elindul az élmény.</p>
+      </header>
+      <form id="reg-form" class="reg-form">
+        <label class="reg-label" for="reg-name">Teljes név</label>
+        <input id="reg-name" name="name" type="text" maxlength="120" required autocomplete="name" class="reg-input field-input" />
+        <button type="submit" class="btn-neon btn-cta reg-submit">Küldés</button>
+        <p class="reg-msg" id="reg-msg" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+    <script type="module" src="/register/register.js"></script>
+  </body>
+</html>
