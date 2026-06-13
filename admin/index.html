@@ -208,7 +208,7 @@
               <p class="section-lead">Indítsd a kamerát, majd készíts felvételt (3 mp visszaszámlálás).</p>
               <p class="hint-text" id="cam-secure-hint" hidden></p>
               <div class="video-wrap" id="cam-live-wrap">
-                <video id="cam-preview" playsinline autoplay muted></video>
+                <video id="cam-preview" playsinline webkit-playsinline autoplay muted></video>
               </div>
               <input type="file" id="cam-file-fallback" class="hidden" accept="image/*" capture="user" />
               <div class="action-row shutter-row">
@@ -266,7 +266,7 @@
             <input type="text" id="visitor-nickname" class="field-input" maxlength="24" autocomplete="off" />
             <p class="hint-text" id="visitor-camera-hint"></p>
             <div class="video-wrap" id="visitor-cam-wrap">
-              <video id="visitor-cam-preview" playsinline autoplay muted></video>
+              <video id="visitor-cam-preview" playsinline webkit-playsinline autoplay muted></video>
             </div>
             <input type="file" id="visitor-file-fallback" class="hidden" accept="image/*" capture="user" />
             <div class="action-row">

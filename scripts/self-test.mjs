@@ -144,6 +144,7 @@ if (phpMissing) {
 
 const jsFiles = [
   "shared/js/state-sync.js",
+  "shared/js/camera-capture.js",
   "shared/js/media-layer.js",
   "shared/js/layer-switch.js",
   "shared/js/quiz-panel.js",
@@ -211,6 +212,7 @@ if (!fs.existsSync(path.join(root, "docs", "roadmap-blaci.md"))) {
 
 const extraPaths = [
   "shared/css/components.css",
+  "shared/js/camera-capture.js",
   "shared/celebration-templates.json",
   "shared/assets/celebration/crowd-europe.png",
   "shared/assets/celebration/crowd-nyc.png",
@@ -239,6 +241,28 @@ if (!adminJs.includes("tab-hardware") || !adminJs.includes("hardware-event-log")
 if (!adminJs.includes("tab-visitors") || !adminJs.includes("setBigLayer")) {
   fail("admin.js: Mobilmozi v2 látogatók / képernyő vezérlés hiányzik");
 } else ok("admin.js: Mobilmozi v2 fülek");
+
+if (!adminJs.includes("camera-capture.js") || !adminJs.includes("requestUserCamera")) {
+  fail("admin.js: közös camera-capture modul import hiányzik");
+} else ok("admin.js: camera-capture import");
+
+const cameraJs = fs.readFileSync(path.join(root, "shared", "js", "camera-capture.js"), "utf8");
+if (!cameraJs.includes("OverconstrainedError") || !cameraJs.includes("CAMERA_CONSTRAINT_ATTEMPTS")) {
+  fail("camera-capture.js: constraint fallback hiányzik");
+} else ok("camera-capture.js: progressive getUserMedia");
+
+if (!cameraJs.includes("enumerateDevices") || !cameraJs.includes("waitForVideoPlaying")) {
+  fail("camera-capture.js: tablet / Apache HTTPS kamera segédek hiányoznak");
+} else ok("camera-capture.js: device enumeration + playing wait");
+
+const htaccess = path.join(root, ".htaccess");
+if (!fs.existsSync(htaccess) || !fs.readFileSync(htaccess, "utf8").includes("Permissions-Policy")) {
+  fail(".htaccess: Permissions-Policy camera=(self) hiányzik");
+} else ok(".htaccess: Apache kamera engedély");
+
+if (!devServer.includes('process.env.HOST') || !devServer.includes("firstLanIPv4")) {
+  fail("scripts/dev-server.mjs: HOST / LAN URL támogatás hiányzik");
+} else ok("dev-server.mjs: HOST LAN binding");
 
 const flowJson = fs.readFileSync(path.join(root, "hardware", "node-red", "mqtt-to-state.flow.json"), "utf8");
 if (!flowJson.includes("mobilmozi/#") || !flowJson.includes("raw.screens")) {

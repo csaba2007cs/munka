@@ -1,4 +1,14 @@
 import { createStateSync, formatStateTimestamp } from "/shared/js/state-sync.js";
+import {
+  applyInsecureCameraUx,
+  attachCameraStream,
+  cameraErrorMessage,
+  captureVideoFrame,
+  isCoarsePointer,
+  requestUserCamera,
+  stopMediaStream,
+  waitForVideoFrame,
+} from "/shared/js/camera-capture.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -56,6 +66,9 @@ const sync = createStateSync({
 
 let view = "control";
 let refreshPhotoboothList = () => {};
+let stopPhotoboothStream = () => {};
+let startPhotoboothCamera = async () => {};
+let stopVisitorStream = () => {};
 
 function asObject(v) {
   return typeof v === "object" && v !== null ? v : {};
@@ -96,35 +109,6 @@ function newSensorEvent(device, type, message) {
   const event = { device, type, at };
   if (message) event.message = message;
   return event;
-}
-
-function cameraErrorMessage(err) {
-  const name = String(err?.name ?? "");
-  if (name === "NotAllowedError") {
-    return "A kamera hozzáférés megtagadva. Engedélyezd a böngészőben, vagy válaszd a Fájl / galéria gombot.";
-  }
-  if (name === "NotFoundError") {
-    return "Nem található kamera. Használd a fájl feltöltést.";
-  }
-  if (name === "NotReadableError") {
-    return "A kamera foglalt vagy nem olvasható. Zárd be a másik alkalmazást, majd próbáld újra.";
-  }
-  return String(err?.message ?? err ?? "Ismeretlen kamera hiba");
-}
-
-async function startUserCamera(video) {
-  if (!window.isSecureContext) {
-    throw new Error("A kamera csak HTTPS vagy localhost környezetben érhető el.");
-  }
-  if (video) {
-    video.setAttribute("playsinline", "");
-    video.setAttribute("autoplay", "");
-    video.muted = true;
-  }
-  return navigator.mediaDevices.getUserMedia({
-    video: { facingMode: { ideal: "user" }, width: { ideal: 1920 } },
-    audio: false,
-  });
 }
 
 function updateTabs() {
@@ -424,6 +408,12 @@ async function uploadImageBlob(blob, kind) {
 }
 
 function setView(next) {
+  if (view === "photobooth" && next !== "photobooth") {
+    stopPhotoboothStream();
+  }
+  if (view === "visitors" && next !== "visitors") {
+    stopVisitorStream();
+  }
   view = next;
   updateTabs();
   if (view === "photobooth") {
@@ -721,23 +711,64 @@ function bootPhotobooth() {
   }
 
   const secureHint = $("cam-secure-hint");
-  if (secureHint && !window.isSecureContext) {
-    secureHint.hidden = false;
-    secureHint.textContent =
-      "A kamera csak biztonságos kapcsolaton (HTTPS vagy localhost) működik. Használd a Fájl / galéria gombot.";
+  applyInsecureCameraUx({
+    startButton: $("cam-start"),
+    hintEl: secureHint,
+    filePickButton: $("cam-file-pick"),
+  });
+
+  function stopStream() {
+    stopMediaStream(stream);
+    stream = null;
+    if (video) video.srcObject = null;
   }
 
-  $("cam-start")?.addEventListener("click", async () => {
-    try {
-      stream = await startUserCamera(video);
-      if (video && stream) {
-        video.srcObject = stream;
-        await video.play();
-      }
-      showToast("Kamera bekapcsolva.", "success");
-    } catch (e) {
-      showToast(cameraErrorMessage(e), "error");
+  stopPhotoboothStream = stopStream;
+
+  function showCameraError(message) {
+    if (secureHint) {
+      secureHint.hidden = false;
+      secureHint.textContent = message;
+      secureHint.classList.add("camera-hint--warn");
     }
+    showToast(message, "error");
+  }
+
+  async function clearCameraHint() {
+    if (secureHint && window.isSecureContext) {
+      secureHint.hidden = true;
+      secureHint.textContent = "";
+      secureHint.classList.remove("camera-hint--warn");
+    }
+  }
+
+  async function resumeLivePreview() {
+    if (!video || !stream) return;
+    try {
+      await attachCameraStream(video, stream);
+    } catch (e) {
+      showCameraError(cameraErrorMessage(e));
+    }
+  }
+
+  async function beginPhotoboothCamera({ toastOnSuccess = true } = {}) {
+    try {
+      stopStream();
+      await clearCameraHint();
+      stream = await requestUserCamera();
+      await attachCameraStream(video, stream);
+      if (toastOnSuccess) showToast("Kamera bekapcsolva.", "success");
+      return true;
+    } catch (e) {
+      showCameraError(cameraErrorMessage(e));
+      return false;
+    }
+  }
+
+  startPhotoboothCamera = beginPhotoboothCamera;
+
+  $("cam-start")?.addEventListener("click", () => {
+    void beginPhotoboothCamera();
   });
 
   $("cam-file-pick")?.addEventListener("click", () => $("cam-file-fallback")?.click());
@@ -755,15 +786,19 @@ function bootPhotobooth() {
   });
 
   $("cam-stop")?.addEventListener("click", () => {
-    stream?.getTracks().forEach((t) => t.stop());
-    stream = null;
-    if (video) video.srcObject = null;
+    stopStream();
     showToast("Kamera kikapcsolva.", "success");
   });
 
   $("cam-capture")?.addEventListener("click", async () => {
     if (!video || !canvas || !stream) {
-      showToast("Előbb indítsd be a kamerát.", "error");
+      showToast("Előbb indítsd be a kamerát, vagy válassz fájlt.", "error");
+      return;
+    }
+    try {
+      await waitForVideoFrame(video);
+    } catch (e) {
+      showToast(cameraErrorMessage(e), "error");
       return;
     }
     let n = 3;
@@ -780,30 +815,29 @@ function bootPhotobooth() {
     });
     if (cd) cd.textContent = "";
 
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob((blob) => {
-      if (!blob) return;
+    try {
+      const blob = await captureVideoFrame(video, canvas);
       clearPending();
       pendingBlob = blob;
       previewObjectUrl = URL.createObjectURL(blob);
       if (previewShot) previewShot.src = previewObjectUrl;
       showPreview();
       showToast("Ellenőrizd az előnézetet, majd töltsd fel vagy készíts újat.", "success");
-    }, "image/jpeg", 0.92);
+    } catch (e) {
+      showToast(cameraErrorMessage(e), "error");
+    }
   });
 
   $("cam-retake")?.addEventListener("click", () => {
     clearPending();
     showLive();
+    void resumeLivePreview();
   });
 
   $("cam-cancel-preview")?.addEventListener("click", () => {
     clearPending();
     showLive();
+    void resumeLivePreview();
   });
 
   $("cam-upload")?.addEventListener("click", async () => {
@@ -832,6 +866,7 @@ function bootPhotobooth() {
   $("cam-new-shot")?.addEventListener("click", () => {
     clearPending();
     showLive();
+    void resumeLivePreview();
   });
 
   refreshPhotoboothList = loadRecentUploads;
@@ -845,51 +880,57 @@ function bootVisitors() {
   let stream = null;
   let pendingBlob = null;
 
-  if (hint && !window.isSecureContext) {
-    hint.textContent =
-      "A kamera csak HTTPS / localhost alatt érhető el — használd a Fájl / galéria gombot.";
-  }
+  applyInsecureCameraUx({
+    startButton: $("visitor-cam-start"),
+    hintEl: hint,
+    filePickButton: $("visitor-file-pick"),
+  });
 
   function stopStream() {
-    stream?.getTracks().forEach((t) => t.stop());
+    stopMediaStream(stream);
     stream = null;
     if (video) video.srcObject = null;
   }
 
+  stopVisitorStream = stopStream;
+
   $("visitor-cam-start")?.addEventListener("click", async () => {
     try {
       stopStream();
-      stream = await startUserCamera(video);
-      if (video && stream) {
-        video.srcObject = stream;
-        await video.play();
+      if (hint && window.isSecureContext) {
+        hint.textContent = "";
+        hint.classList.remove("camera-hint--warn");
       }
+      stream = await requestUserCamera();
+      await attachCameraStream(video, stream);
       showToast("Látogatói kamera bekapcsolva.", "success");
     } catch (e) {
-      showToast(cameraErrorMessage(e), "error");
+      const msg = cameraErrorMessage(e);
+      if (hint) {
+        hint.textContent = msg;
+        hint.classList.add("camera-hint--warn");
+      }
+      showToast(msg, "error");
     }
   });
 
-  $("visitor-cam-capture")?.addEventListener("click", () => {
+  $("visitor-cam-capture")?.addEventListener("click", async () => {
     if (!video || !stream) {
       showToast("Előbb indítsd be a kamerát, vagy válassz fájlt.", "error");
       return;
     }
     const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth || 1280;
-    canvas.height = video.videoHeight || 720;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    canvas.toBlob((blob) => {
-      if (!blob) return;
+    try {
+      const blob = await captureVideoFrame(video, canvas);
       pendingBlob = blob;
       if (preview) {
         preview.src = URL.createObjectURL(blob);
         preview.classList.remove("hidden");
       }
       showToast("Felvétel kész — add meg a becenevet és mentsd.", "success");
-    }, "image/jpeg", 0.92);
+    } catch (e) {
+      showToast(cameraErrorMessage(e), "error");
+    }
   });
 
   $("visitor-file-pick")?.addEventListener("click", () => $("visitor-file-fallback")?.click());
@@ -971,7 +1012,12 @@ function bootScreens() {
 
 function boot() {
   $("tab-control")?.addEventListener("click", () => setView("control"));
-  $("tab-photobooth")?.addEventListener("click", () => setView("photobooth"));
+  $("tab-photobooth")?.addEventListener("click", () => {
+    setView("photobooth");
+    if (window.isSecureContext && isCoarsePointer()) {
+      void startPhotoboothCamera({ toastOnSuccess: false });
+    }
+  });
   $("tab-visitors")?.addEventListener("click", () => setView("visitors"));
   $("tab-screens")?.addEventListener("click", () => setView("screens"));
   $("tab-hardware")?.addEventListener("click", () => setView("hardware"));

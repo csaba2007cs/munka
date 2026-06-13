@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import http from "http";
+import os from "os";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -607,6 +608,19 @@ async function handleRegister(req, res) {
 }
 
 const port = Number(process.env.PORT) || 8787;
+const host = process.env.HOST || "127.0.0.1";
+
+function firstLanIPv4() {
+  const nets = os.networkInterfaces();
+  for (const name of Object.keys(nets)) {
+    for (const net of nets[name] ?? []) {
+      if (net.family === "IPv4" && !net.internal) {
+        return net.address;
+      }
+    }
+  }
+  return null;
+}
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url || "/", `http://127.0.0.1:${port}`);
@@ -645,20 +659,29 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(port, "127.0.0.1", () => {
-  const base = `http://127.0.0.1:${port}`;
+server.listen(port, host, () => {
+  const localBase = `http://127.0.0.1:${port}`;
+  const lanIp = firstLanIPv4();
+  const lanLine =
+    host === "0.0.0.0" && lanIp
+      ? `\n  LAN (tablet): http://${lanIp}:${port}/admin/\n  (Élő kamera HTTP-n nem működik — használd a Fájl / galéria gombot, vagy HTTPS.)`
+      : host === "0.0.0.0"
+        ? "\n  LAN: figyel 0.0.0.0-on (nézd meg a gép IP-címét a tableten)"
+        : "";
   console.log(`
 Nanoportal dev server (Node) — mirrors /api/*.php for local preview without PHP.
 
-  Admin:      ${base}/admin/
-  Bigscreen:  ${base}/bigscreen/
-  Smallscreen:${base}/smallscreen/
-  Quiz:       ${base}/quiz/
-  Display:    ${base}/display/
-  Register:   ${base}/register/
+  Admin:      ${localBase}/admin/
+  Bigscreen:  ${localBase}/bigscreen/
+  Smallscreen:${localBase}/smallscreen/
+  Quiz:       ${localBase}/quiz/
+  Display:    ${localBase}/display/
+  Register:   ${localBase}/register/
 
-  State API: ${base}/api/state.php
-  Register API: ${base}/api/register.php
+  State API: ${localBase}/api/state.php
+  Register API: ${localBase}/api/register.php${lanLine}
+
+  HOST=${host} PORT=${port} (HOST=0.0.0.0 for LAN tablet access)
   Stop: Ctrl+C
 `);
 });

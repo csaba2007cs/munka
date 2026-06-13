@@ -261,6 +261,7 @@ Részletes összefoglaló: [docs/node-red-example.md](docs/node-red-example.md).
 2. A **`data/`** könyvtárnak írhatónak kell lennie a webszerver felhasználója számára (`www-data`), mert ide ír a PHP (`state.json`, fotók).
 3. A **`shared/assets/audio/`** és **`video/`** mappákba tegyél tényleges médiafájlokat; a `state.json`-ban szereplő fájlneveknek egyezniük kell.
 4. Győződj meg róla, hogy a webszerver **kiszolgálja** a `/data/` alatti képeket is (ha publikus URL kell a feltöltött fotóhoz).
+5. **Tablet photobooth (HTTPS):** a gyökérben lévő [`.htaccess`](.htaccess) engedélyezi a kamerát (`Permissions-Policy: camera=(self)`). Szükséges: `sudo a2enmod headers` és `AllowOverride` a vhostban. A tableten az admin URL legyen **HTTPS** (pl. `https://nanoportal.local/admin/`).
 
 ---
 
@@ -281,6 +282,7 @@ A jelenlegi PHP végpontok **nem** tartalmaznak bejelentkezést: lokális, zárt
 | Üres állapot / 500 | `data/` létezik-e, írható-e; `state.json` JSON érvényes-e. |
 | Hang nem szól | Fájl a `shared/assets/audio/` alatt van-e; `POST` válasz `playUrl`. |
 | Fotó nem tölt fel | `photo` mezőnév; HTTPS vegyes tartalom; böngésző kamera engedély. |
+| Photobooth kamera tableten | **Éles:** HTTPS Apache + gyökér [`.htaccess`](.htaccess) (`camera=(self)`), böngésző kamera engedély. Photobooth fül megnyitásakor a tablet automatikusan indítja az élő előnézetet. Ha fekete kép: **Kamera ki** → **Kamera be**, vagy engedély újra. HTTP LAN dev: csak **Fájl / galéria** (`capture="user"`). |
 | Quiz nem reagál | `status` legyen `RUNNING`; operátor indította-e a játékot. |
 
 ---
@@ -295,6 +297,7 @@ A jelenlegi PHP végpontok **nem** tartalmaznak bejelentkezést: lokális, zárt
 | `api/upload.php` | Photobooth kép mentés. |
 | `api/photobooth-list.php` | Utolsó photobooth fájlok listája (`GET`). |
 | `shared/js/state-sync.js` | Közös szinkron kliens. |
+| `shared/js/camera-capture.js` | Admin kamera: getUserMedia fallback, felvétel. |
 | `quiz/quiz.js` | Quiz logika és hullám canvas. |
 | `quiz/quiz.css` | Quiz megjelenés, animációk. |
 | `admin/admin.js` | Admin + photobooth események. |
@@ -322,6 +325,15 @@ node scripts/dev-server.mjs
 ```
 
 Alapértelmezett cím: `http://127.0.0.1:8787/` (átirányít `/admin/`-ra). Más port: `PORT=9000 node scripts/dev-server.mjs` (PowerShell: `$env:PORT=9000; node scripts/dev-server.mjs`).
+
+Tablet a helyi hálózatról (pl. Samsung Tab): figyelés minden interfészen, majd a géped LAN IP-jén nyisd meg az admin felületet:
+
+```powershell
+$env:HOST="0.0.0.0"; node scripts/dev-server.mjs
+# Tablet: http://<PC-LAN-IP>:8787/admin/
+```
+
+Az élő kamera előnézet HTTP LAN-on böngészőpolicy miatt nem indul — a Photobooth **Fájl / galéria** gombja közvetlenül megnyitja a tablet kameráját. Éles helyszínen HTTPS szükséges az élő előnézethez.
 
 ---
 

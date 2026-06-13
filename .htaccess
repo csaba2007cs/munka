@@ -1,0 +1,8 @@
+# Nanoportal — Apache headers for tablet photobooth (HTTPS site root).
+# Requires: a2enmod headers
+
+<IfModule mod_headers.c>
+  # Allow getUserMedia on this origin (tablet admin over HTTPS).
+  Header always set Permissions-Policy "camera=(self), microphone=()"
+  Header always set Feature-Policy "camera 'self'; microphone 'none'"
+</IfModule>
