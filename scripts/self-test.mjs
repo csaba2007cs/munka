@@ -151,8 +151,6 @@ const jsFiles = [
   "quiz/quiz.js",
   "admin/admin.js",
   "display/display.js",
-  "bigscreen/bigscreen.js",
-  "bigscreen/celebration.js",
   "smallscreen/smallscreen.js",
   "register/register.js",
 ];
@@ -263,6 +261,25 @@ if (!fs.existsSync(htaccess) || !fs.readFileSync(htaccess, "utf8").includes("Per
 if (!devServer.includes('process.env.HOST') || !devServer.includes("firstLanIPv4")) {
   fail("scripts/dev-server.mjs: HOST / LAN URL támogatás hiányzik");
 } else ok("dev-server.mjs: HOST LAN binding");
+
+const bigscreenHtml = fs.readFileSync(path.join(root, "bigscreen", "index.html"), "utf8");
+if (!bigscreenHtml.includes("mqtt.min.js") || !bigscreenHtml.includes("bigscreen/layer")) {
+  fail("bigscreen/index.html: MQTT kiosk hiányzik");
+} else ok("bigscreen/index.html: MQTT kiosk");
+
+if (!bigscreenHtml.includes("bigscreen/photo") || !bigscreenHtml.includes("bigscreen/players")) {
+  fail("bigscreen/index.html: MQTT photo/players topic hiányzik");
+} else ok("bigscreen/index.html: MQTT topics");
+
+if (!bigscreenHtml.includes("z-index: 999")) {
+  fail("bigscreen/index.html: réteg z-index váltás hiányzik");
+} else ok("bigscreen/index.html: layer z-index");
+
+for (const removed of ["bigscreen/bigscreen.js", "bigscreen/celebration.js", "bigscreen/bigscreen.css"]) {
+  if (fs.existsSync(path.join(root, removed))) {
+    fail(`eltávolítandó fájl még létezik: ${removed}`);
+  } else ok(`törölve: ${removed}`);
+}
 
 const flowJson = fs.readFileSync(path.join(root, "hardware", "node-red", "mqtt-to-state.flow.json"), "utf8");
 if (!flowJson.includes("mobilmozi/#") || !flowJson.includes("raw.screens")) {

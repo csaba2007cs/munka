@@ -12,6 +12,13 @@ Szükséges node-ok: **node-red-node-mqtt** (MQTT in), **http request** (beépí
 
 A flow egy **mqtt-broker** config node-ot hoz létre: `127.0.0.1:1883`. Ha a Mosquitto más címen fut, szerkeszd a broker node-ot.
 
+A **60" nagy kijelző** (`/bigscreen/`) közvetlenül MQTT-t figyel — nem a `state.php`-n keresztül. WebSocket a böngészőnek: **9001** (lásd [DOKUMENTACIO.md](../../DOKUMENTACIO.md) §6.3). Példa publish:
+
+```bash
+mosquitto_pub -h 127.0.0.1 -t bigscreen/layer -m photo
+mosquitto_pub -h 127.0.0.1 -t bigscreen/photo -m "/data/photobooth_....jpg"
+```
+
 **Topic:** `nanoportal/esp32/#` (MQTT In node).
 
 Példa ESP32 üzenet (JSON):

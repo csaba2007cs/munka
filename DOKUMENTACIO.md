@@ -108,7 +108,7 @@ Fontosabb mezők:
 
 ### 3.7a Mobilmozi v2 — `screens`, `visitors`, `group_contact`
 
-**`screens.big`** (60" Firefox kiosk, `/bigscreen/`):
+**`screens.big`** (legacy — admin / Node-RED `state.php` patch; a **60" kiosk** közvetlenül MQTT-t használ, lásd §6.3):
 
 - `layer`: `window` | `media` | `celebration`
 - `window_image`: feltöltött ablakfotó URL (`/data/...`)
@@ -233,10 +233,46 @@ Részletes összefoglaló: [docs/node-red-example.md](docs/node-red-example.md).
 - **Hardver:** kapcsolat jelzés (aktív, ha 2 percen belül volt esemény), utolsó esemény, zóna LED badge-ek, görgethető eseménynapló, teszt gombok (mozgás / ajtó / LED), napló törlése.
 - **Stílus:** [`admin/admin.css`](admin/admin.css) operátori mód (Rajdhani, nagy érintési célok) — lásd [docs/design-tokens.md](docs/design-tokens.md).
 
-### 6.3 Bigscreen (`/bigscreen/`) — Mobilmozi v2
+### 6.3 Bigscreen (`/bigscreen/`) — MQTT kiosk
 
-- Három fullscreen réteg: **ablakfotó**, **videó+hang**, **gratuláció** (látogatói carousel, sablon pozíciók).
-- Nincs érintés (`pointer-events: none`). Állapot: `screens.big.layer` (500 ms poll).
+Egyetlen önálló HTML: [`bigscreen/index.html`](bigscreen/index.html) — inline CSS/JS, **MQTT.js** CDN, **nincs** `state.php` poll. Firefox kiosk (60"), érintés nélkül (`pointer-events: none`).
+
+**Broker:** alapértelmezés `ws://<ugyanaz-a-host>:9001` (Mosquitto WebSocket). Teszt: `?broker=ws://192.168.x.x:9001`.
+
+**Mosquitto** (példa):
+
+```
+listener 1883
+listener 9001
+protocol websockets
+```
+
+Nyisd meg a tűzfalon a **9001**-et a kiosk alhálózat felől.
+
+| Topic | Payload | Hatás |
+|-------|---------|--------|
+| `bigscreen/layer` | `photo` \| `video` \| `celebration` | Aktív réteg (`z-index: 999`) |
+| `bigscreen/photo` | URL vagy base64 | Üdvözlő fotó (`object-fit: cover`) |
+| `bigscreen/video` | URL vagy fájlnév | Videó forrás (`/shared/assets/video/` ha csak név) |
+| `bigscreen/video/play` | (üres) | Lejátszás |
+| `bigscreen/video/pause` | (üres) | Szünet |
+| `bigscreen/video/reset` | (üres) | Stop + elejére |
+| `bigscreen/players` | JSON tömb `[{"photo":"…","name":"…"}, …]` | 2–6 játékos, 9 s carousel |
+| `bigscreen/celebration/background` | `crowd_europe` \| `crowd_nyc` | Tömeg háttér (opcionális) |
+| `bigscreen/celebration/cheer` | URL vagy hangfájl | Ünneplő loop (opcionális) |
+
+Példa (Mosquitto CLI):
+
+```bash
+mosquitto_pub -h 127.0.0.1 -t bigscreen/photo -m "/data/photobooth_20260101_120000_abcd.jpg"
+mosquitto_pub -h 127.0.0.1 -t bigscreen/layer -m photo
+mosquitto_pub -h 127.0.0.1 -t bigscreen/video -m "/shared/assets/video/intro.mp4"
+mosquitto_pub -h 127.0.0.1 -t bigscreen/layer -m video
+mosquitto_pub -h 127.0.0.1 -t bigscreen/players -m '[{"photo":"/data/visitor_....jpg","name":"ANNA"},{"photo":"/data/visitor_....jpg","name":"BÉLA"}]'
+mosquitto_pub -h 127.0.0.1 -t bigscreen/layer -m celebration
+```
+
+Az admin **Képernyők** fül `screens.big` patch-e **nem** vezérli a nagy TV-t — MQTT publish szükséges (Node-RED, CLI, vagy későbbi bridge).
 
 ### 6.4 Smallscreen (`/smallscreen/`) — Mobilmozi v2
 
@@ -262,6 +298,7 @@ Részletes összefoglaló: [docs/node-red-example.md](docs/node-red-example.md).
 3. A **`shared/assets/audio/`** és **`video/`** mappákba tegyél tényleges médiafájlokat; a `state.json`-ban szereplő fájlneveknek egyezniük kell.
 4. Győződj meg róla, hogy a webszerver **kiszolgálja** a `/data/` alatti képeket is (ha publikus URL kell a feltöltött fotóhoz).
 5. **Tablet photobooth (HTTPS):** a gyökérben lévő [`.htaccess`](.htaccess) engedélyezi a kamerát (`Permissions-Policy: camera=(self)`). Szükséges: `sudo a2enmod headers` és `AllowOverride` a vhostban. A tableten az admin URL legyen **HTTPS** (pl. `https://nanoportal.local/admin/`).
+6. **Nagy kijelző MQTT:** Mosquitto WebSocket a **9001**-en; részletek: §6.3.
 
 ---
 
