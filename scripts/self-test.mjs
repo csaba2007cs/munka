@@ -151,7 +151,6 @@ const jsFiles = [
   "quiz/quiz.js",
   "admin/admin.js",
   "display/display.js",
-  "smallscreen/smallscreen.js",
   "register/register.js",
 ];
 for (const rel of jsFiles) {
@@ -276,6 +275,32 @@ if (!bigscreenHtml.includes("z-index: 999")) {
 } else ok("bigscreen/index.html: layer z-index");
 
 for (const removed of ["bigscreen/bigscreen.js", "bigscreen/celebration.js", "bigscreen/bigscreen.css"]) {
+  if (fs.existsSync(path.join(root, removed))) {
+    fail(`eltávolítandó fájl még létezik: ${removed}`);
+  } else ok(`törölve: ${removed}`);
+}
+
+const smallscreenHtml = fs.readFileSync(path.join(root, "smallscreen", "index.html"), "utf8");
+if (!smallscreenHtml.includes("mqtt.min.js") || !smallscreenHtml.includes("smallscreen/layer")) {
+  fail("smallscreen/index.html: MQTT kiosk hiányzik");
+} else ok("smallscreen/index.html: MQTT kiosk");
+
+if (
+  !smallscreenHtml.includes("smallscreen/quiz") ||
+  !smallscreenHtml.includes("smallscreen/quiz/result")
+) {
+  fail("smallscreen/index.html: MQTT quiz / result topic hiányzik");
+} else ok("smallscreen/index.html: MQTT quiz topics");
+
+if (!smallscreenHtml.includes("z-index: 999")) {
+  fail("smallscreen/index.html: réteg z-index váltás hiányzik");
+} else ok("smallscreen/index.html: layer z-index");
+
+if (!smallscreenHtml.includes("min-height: 60px")) {
+  fail("smallscreen/index.html: kvíz válasz gomb min-height 60px hiányzik");
+} else ok("smallscreen/index.html: quiz touch targets");
+
+for (const removed of ["smallscreen/smallscreen.js", "smallscreen/smallscreen.css"]) {
   if (fs.existsSync(path.join(root, removed))) {
     fail(`eltávolítandó fájl még létezik: ${removed}`);
   } else ok(`törölve: ${removed}`);

@@ -19,6 +19,17 @@ mosquitto_pub -h 127.0.0.1 -t bigscreen/layer -m photo
 mosquitto_pub -h 127.0.0.1 -t bigscreen/photo -m "/data/photobooth_....jpg"
 ```
 
+A **21" érintő kiosk** (`/smallscreen/`) szintén közvetlenül MQTT-t figyel (§6.4). Példa:
+
+```bash
+mosquitto_pub -h 127.0.0.1 -t smallscreen/quiz -m '[{"question":"Teszt?","answers":[{"text":"Igen","correct":true},{"text":"Nem","correct":false}]}]'
+mosquitto_pub -h 127.0.0.1 -t smallscreen/layer -m quiz
+mosquitto_pub -h 127.0.0.1 -t smallscreen/photo -m "/shared/assets/images/small-idle.svg"
+mosquitto_pub -h 127.0.0.1 -t smallscreen/layer -m photo
+```
+
+A kvíz befejezésekor a kiosk `smallscreen/quiz/result` topicra küldi az eredményt (`{"score":…,"total":…}`).
+
 **Topic:** `nanoportal/esp32/#` (MQTT In node).
 
 Példa ESP32 üzenet (JSON):

@@ -115,9 +115,9 @@ Fontosabb mezők:
 - `media`: `{ "video", "audio" }` — fájlnevek a `shared/assets/video/` és `audio/` mappákból
 - `celebration`: `{ "template", "duration_sec", "cheer_audio" }` — sablonok: [shared/celebration-templates.json](shared/celebration-templates.json)
 
-**`screens.small`** (21" érintő, `/smallscreen/`):
+**`screens.small`** (legacy — admin / Node-RED `state.php` patch; a **21" érintő kiosk** közvetlenül MQTT-t használ, lásd §6.4):
 
-- `layer`: `idle` | `media` | `quiz`
+- `layer`: `idle` | `media` | `quiz` (régi séma; az MQTT kiosk: `photo` | `video` | `quiz`)
 - `idle_image`: statikus várakozó kép URL
 - `media`: ugyanaz a séma, mint a nagy kijelzőn
 - `touch_enabled`: kvíz rétegnél a kliens engedélyezi az érintést
@@ -274,10 +274,47 @@ mosquitto_pub -h 127.0.0.1 -t bigscreen/layer -m celebration
 
 Az admin **Képernyők** fül `screens.big` patch-e **nem** vezérli a nagy TV-t — MQTT publish szükséges (Node-RED, CLI, vagy későbbi bridge).
 
-### 6.4 Smallscreen (`/smallscreen/`) — Mobilmozi v2
+### 6.4 Smallscreen (`/smallscreen/`) — MQTT kiosk
 
-- Rétegek: **idle** (statikus kép), **media**, **quiz** (megosztott [shared/js/quiz-panel.js](shared/js/quiz-panel.js)).
-- Érintés csak kvíz rétegen. A régi `/quiz/` párhuzamosan fut.
+Egyetlen önálló HTML: [`smallscreen/index.html`](smallscreen/index.html) — inline CSS/JS, **MQTT.js** CDN, **nincs** `state.php` poll. Firefox kiosk (21" érintőképernyő): **photo** és **video** rétegen érintés tiltva; **quiz** rétegen interaktív válaszgombok.
+
+**Broker:** ugyanaz, mint a nagy kijelzőn — `ws://<ugyanaz-a-host>:9001` (lásd §6.3). Teszt: `?broker=ws://192.168.x.x:9001`.
+
+| Topic | Payload | Hatás |
+|-------|---------|--------|
+| `smallscreen/layer` | `photo` \| `video` \| `quiz` | Aktív réteg (`z-index: 999`) |
+| `smallscreen/photo` | URL vagy base64 | Statikus kép (`object-fit: cover`) |
+| `smallscreen/video` | URL vagy fájlnév | Videó forrás; lejátszás réteg aktiváláskor |
+| `smallscreen/quiz` | JSON kérdésbank | Lásd alább |
+| `smallscreen/quiz/result` | *(publish)* `{"score":3,"total":4}` | A kiosk küldi, ha a felhasználó befejezi a kvízt |
+
+**Kvíz JSON** (`smallscreen/quiz`):
+
+```json
+[
+  {
+    "question": "Melyik a helyes?",
+    "answers": [
+      { "text": "A válasz", "correct": true },
+      { "text": "B válasz", "correct": false }
+    ]
+  }
+]
+```
+
+Minimum 1 kérdés, kérdésenként legalább 2 válasz. A kiválasztott válasz `correct` mezője határozza meg a pontot. Helytelen válasznál a helyes opció zölddel kiemelődik; 1,5 s után következő kérdés vagy eredményképernyő.
+
+Példa (Mosquitto CLI):
+
+```bash
+mosquitto_pub -h 127.0.0.1 -t smallscreen/quiz -m '[{"question":"Melyik a helyes?","answers":[{"text":"A","correct":true},{"text":"B","correct":false}]}]'
+mosquitto_pub -h 127.0.0.1 -t smallscreen/photo -m "/shared/assets/images/small-idle.svg"
+mosquitto_pub -h 127.0.0.1 -t smallscreen/layer -m quiz
+mosquitto_pub -h 127.0.0.1 -t smallscreen/video -m "/shared/assets/video/intro.mp4"
+mosquitto_pub -h 127.0.0.1 -t smallscreen/layer -m video
+```
+
+Az admin **Képernyők** fül `screens.small` patch-e **nem** vezérli az érintő kioskot — MQTT publish szükséges. A régi önálló [`/quiz/`](quiz/) oldal és [`shared/js/quiz-panel.js`](shared/js/quiz-panel.js) továbbra is a `state.php` alapú kvízhez készült.
 
 ### 6.5 Display (`/display/`)
 
@@ -299,6 +336,7 @@ Az admin **Képernyők** fül `screens.big` patch-e **nem** vezérli a nagy TV-t
 4. Győződj meg róla, hogy a webszerver **kiszolgálja** a `/data/` alatti képeket is (ha publikus URL kell a feltöltött fotóhoz).
 5. **Tablet photobooth (HTTPS):** a gyökérben lévő [`.htaccess`](.htaccess) engedélyezi a kamerát (`Permissions-Policy: camera=(self)`). Szükséges: `sudo a2enmod headers` és `AllowOverride` a vhostban. A tableten az admin URL legyen **HTTPS** (pl. `https://nanoportal.local/admin/`).
 6. **Nagy kijelző MQTT:** Mosquitto WebSocket a **9001**-en; részletek: §6.3.
+7. **Érintő kiosk MQTT:** ugyanaz a broker; részletek: §6.4.
 
 ---
 

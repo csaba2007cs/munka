@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="hu" class="quiz-page">
+<html lang="hu">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -7,30 +7,575 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600&family=Roboto+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700&family=Rajdhani:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/shared/css/theme.css" />
-    <link rel="stylesheet" href="/shared/css/components.css" />
-    <link rel="stylesheet" href="/quiz/quiz.css" />
-    <link rel="stylesheet" href="/smallscreen/smallscreen.css" />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+      }
+
+      body {
+        pointer-events: none;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: manipulation;
+      }
+
+      .layer {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        visibility: hidden;
+        pointer-events: none;
+        overflow: hidden;
+      }
+
+      .layer.is-active {
+        z-index: 999;
+        visibility: visible;
+      }
+
+      .layer-touch-locked.is-active {
+        pointer-events: none;
+      }
+
+      #layer-quiz.is-active {
+        pointer-events: auto;
+      }
+
+      .touch-blocker {
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+        pointer-events: auto;
+        background: transparent;
+      }
+
+      #layer-photo-img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        background: #051018;
+      }
+
+      #layer-video {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        background: #000;
+      }
+
+      #layer-quiz {
+        display: flex;
+        flex-direction: column;
+        background: linear-gradient(180deg, #051018 0%, #0a1a28 100%);
+        color: #e8f4ff;
+        font-family: Rajdhani, system-ui, sans-serif;
+        padding: clamp(1rem, 3vw, 2rem);
+      }
+
+      .quiz-header {
+        flex-shrink: 0;
+        margin-bottom: 1rem;
+      }
+
+      .quiz-kicker {
+        margin: 0 0 0.35rem;
+        font-family: Orbitron, sans-serif;
+        font-size: clamp(0.7rem, 1.8vw, 0.9rem);
+        letter-spacing: 0.12em;
+        color: rgba(0, 191, 255, 0.85);
+      }
+
+      .quiz-progress {
+        margin: 0;
+        font-size: clamp(1rem, 2.5vw, 1.25rem);
+        color: rgba(255, 255, 255, 0.55);
+      }
+
+      #quiz-question {
+        margin: 0 0 1.25rem;
+        font-size: clamp(1.35rem, 3.5vw, 2rem);
+        font-weight: 700;
+        line-height: 1.25;
+      }
+
+      #quiz-answers {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        flex: 1;
+        overflow-y: auto;
+      }
+
+      .quiz-answer {
+        min-height: 60px;
+        padding: 0.85rem 1.1rem;
+        border: 2px solid rgba(0, 191, 255, 0.45);
+        border-radius: 10px;
+        background: rgba(0, 40, 60, 0.55);
+        color: #e8f4ff;
+        font-family: Rajdhani, sans-serif;
+        font-size: clamp(1.1rem, 2.8vw, 1.45rem);
+        font-weight: 600;
+        text-align: left;
+        cursor: pointer;
+        transition: background 0.15s ease, border-color 0.15s ease;
+      }
+
+      .quiz-answer:active:not(:disabled) {
+        background: rgba(0, 191, 255, 0.2);
+      }
+
+      .quiz-answer:disabled {
+        cursor: default;
+        opacity: 0.95;
+      }
+
+      .quiz-answer.is-correct {
+        border-color: #3ddc84;
+        background: rgba(61, 220, 132, 0.25);
+        color: #d8ffe8;
+      }
+
+      .quiz-answer.is-wrong {
+        border-color: #ff5c7a;
+        background: rgba(255, 92, 122, 0.22);
+        color: #ffe8ec;
+      }
+
+      #quiz-play {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+      }
+
+      #quiz-result {
+        display: none;
+        flex: 1;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        gap: 1rem;
+      }
+
+      #quiz-result.is-visible {
+        display: flex;
+      }
+
+      #quiz-play.is-hidden {
+        display: none;
+      }
+
+      .quiz-result-title {
+        margin: 0;
+        font-family: Orbitron, sans-serif;
+        font-size: clamp(1.5rem, 4vw, 2.5rem);
+        color: #00bfff;
+      }
+
+      .quiz-result-score {
+        margin: 0;
+        font-size: clamp(2rem, 6vw, 3.5rem);
+        font-weight: 700;
+      }
+
+      #smallscreen-status {
+        position: fixed;
+        right: 0.75rem;
+        bottom: 0.5rem;
+        z-index: 1000;
+        font-family: "Roboto Mono", ui-monospace, monospace;
+        font-size: 0.65rem;
+        color: rgba(255, 255, 255, 0.35);
+        pointer-events: none;
+      }
+    </style>
+    <script src="https://unpkg.com/mqtt@5.10.4/dist/mqtt.min.js"></script>
   </head>
   <body>
-    <div id="smallscreen-root" class="smallscreen-root" data-active-layer="idle">
-      <section class="smallscreen-layer is-active" data-layer="idle" id="layer-idle" aria-hidden="false">
-        <img id="layer-idle-img" class="layer-idle-img" src="/shared/assets/images/small-idle.svg" alt="Várakozás" />
-      </section>
+    <section id="layer-photo" class="layer layer-touch-locked is-active" aria-hidden="false">
+      <img id="layer-photo-img" src="/shared/assets/images/small-idle.svg" alt="Várakozás" />
+      <div class="touch-blocker" aria-hidden="true"></div>
+    </section>
 
-      <section class="smallscreen-layer hidden" data-layer="media" id="layer-media-wrap" aria-hidden="true">
-        <video id="layer-media-video" playsinline muted autoplay loop></video>
-        <audio id="layer-media-audio" loop></audio>
-      </section>
+    <section id="layer-video-wrap" class="layer layer-touch-locked" aria-hidden="true">
+      <video id="layer-video" playsinline></video>
+      <div class="touch-blocker" aria-hidden="true"></div>
+    </section>
 
-      <section class="smallscreen-layer hidden" data-layer="quiz" id="layer-quiz" aria-hidden="true"></section>
-    </div>
+    <section id="layer-quiz" class="layer" aria-hidden="true">
+      <div id="quiz-play">
+        <header class="quiz-header">
+          <p class="quiz-kicker">NANOPORTAL // KVÍZ</p>
+          <p class="quiz-progress" id="quiz-progress">1 / 1</p>
+        </header>
+        <h2 id="quiz-question">Várakozás kérdésekre…</h2>
+        <div id="quiz-answers"></div>
+      </div>
+      <div id="quiz-result" aria-live="polite">
+        <h2 class="quiz-result-title">Eredmény</h2>
+        <p class="quiz-result-score" id="quiz-result-score">0 / 0</p>
+      </div>
+    </section>
 
-    <p class="smallscreen-sync" id="smallscreen-sync" aria-live="polite">SMALL // …</p>
+    <p id="smallscreen-status" aria-live="polite">MQTT // …</p>
 
-    <script type="module" src="/smallscreen/smallscreen.js"></script>
+    <script>
+      (function () {
+        const LAYERS = {
+          photo: document.getElementById("layer-photo"),
+          video: document.getElementById("layer-video-wrap"),
+          quiz: document.getElementById("layer-quiz"),
+        };
+        const photoImg = document.getElementById("layer-photo-img");
+        const videoEl = document.getElementById("layer-video");
+        const quizPlay = document.getElementById("quiz-play");
+        const quizResult = document.getElementById("quiz-result");
+        const quizQuestion = document.getElementById("quiz-question");
+        const quizAnswers = document.getElementById("quiz-answers");
+        const quizProgress = document.getElementById("quiz-progress");
+        const quizResultScore = document.getElementById("quiz-result-score");
+        const statusEl = document.getElementById("smallscreen-status");
+
+        const TOPICS = [
+          "smallscreen/layer",
+          "smallscreen/photo",
+          "smallscreen/video",
+          "smallscreen/quiz",
+        ];
+
+        const ADVANCE_MS = 1500;
+
+        let activeLayer = "photo";
+        let mqttClient = null;
+        let quizQuestions = [];
+        let questionIndex = 0;
+        let score = 0;
+        let quizLocked = false;
+        let advanceTimer = null;
+
+        function brokerUrl() {
+          const params = new URLSearchParams(window.location.search);
+          const custom = params.get("broker");
+          if (custom) return custom.trim();
+          return "ws://" + window.location.hostname + ":9001";
+        }
+
+        function setStatus(text) {
+          if (statusEl) statusEl.textContent = text;
+        }
+
+        function payloadText(message) {
+          if (message == null) return "";
+          if (typeof message === "string") return message;
+          if (message instanceof ArrayBuffer) {
+            return new TextDecoder("utf-8").decode(message);
+          }
+          if (ArrayBuffer.isView(message)) {
+            return new TextDecoder("utf-8").decode(message);
+          }
+          return String(message);
+        }
+
+        function resolveImageSrc(raw) {
+          const text = String(raw ?? "").trim();
+          if (!text) return "";
+          if (text.startsWith("data:")) return text;
+          if (text.startsWith("http://") || text.startsWith("https://") || text.startsWith("/")) {
+            return text;
+          }
+          return "data:image/jpeg;base64," + text;
+        }
+
+        function resolveMediaUrl(raw) {
+          const text = String(raw ?? "").trim();
+          if (!text) return "";
+          if (text.startsWith("http://") || text.startsWith("https://") || text.startsWith("/")) {
+            return text;
+          }
+          return "/shared/assets/video/" + encodeURIComponent(text);
+        }
+
+        function parseQuizJson(raw) {
+          let data;
+          try {
+            data = JSON.parse(raw);
+          } catch {
+            return [];
+          }
+          if (!Array.isArray(data)) return [];
+          const out = [];
+          for (const row of data) {
+            if (!row || typeof row !== "object") continue;
+            const question = String(row.question ?? "").trim();
+            const answersRaw = Array.isArray(row.answers) ? row.answers : [];
+            const answers = [];
+            for (const a of answersRaw) {
+              if (!a || typeof a !== "object") continue;
+              const text = String(a.text ?? "").trim();
+              if (!text) continue;
+              answers.push({ text, correct: Boolean(a.correct) });
+            }
+            if (!question || answers.length < 2) continue;
+            out.push({ question, answers });
+          }
+          return out;
+        }
+
+        function clearAdvanceTimer() {
+          if (advanceTimer != null) {
+            window.clearTimeout(advanceTimer);
+            advanceTimer = null;
+          }
+        }
+
+        function resetQuizState() {
+          clearAdvanceTimer();
+          questionIndex = 0;
+          score = 0;
+          quizLocked = false;
+          if (quizPlay) quizPlay.classList.remove("is-hidden");
+          if (quizResult) quizResult.classList.remove("is-visible");
+        }
+
+        function showQuizResult() {
+          const total = quizQuestions.length;
+          if (quizPlay) quizPlay.classList.add("is-hidden");
+          if (quizResult) quizResult.classList.add("is-visible");
+          if (quizResultScore) {
+            quizResultScore.textContent = score + " / " + total;
+          }
+          if (mqttClient && mqttClient.connected) {
+            mqttClient.publish(
+              "smallscreen/quiz/result",
+              JSON.stringify({ score: score, total: total }),
+              { qos: 0 },
+            );
+          }
+        }
+
+        function renderQuestion() {
+          clearAdvanceTimer();
+          quizLocked = false;
+
+          if (!quizQuestions.length) {
+            if (quizQuestion) quizQuestion.textContent = "Nincs betöltött kérdés.";
+            if (quizAnswers) quizAnswers.innerHTML = "";
+            if (quizProgress) quizProgress.textContent = "0 / 0";
+            return;
+          }
+
+          if (questionIndex >= quizQuestions.length) {
+            showQuizResult();
+            return;
+          }
+
+          const q = quizQuestions[questionIndex];
+          if (quizQuestion) quizQuestion.textContent = q.question;
+          if (quizProgress) {
+            quizProgress.textContent = questionIndex + 1 + " / " + quizQuestions.length;
+          }
+          if (quizAnswers) {
+            quizAnswers.innerHTML = "";
+            q.answers.forEach(function (answer, idx) {
+              const btn = document.createElement("button");
+              btn.type = "button";
+              btn.className = "quiz-answer";
+              btn.textContent = answer.text;
+              btn.dataset.index = String(idx);
+              btn.addEventListener("click", function () {
+                onAnswerTap(idx);
+              });
+              quizAnswers.appendChild(btn);
+            });
+          }
+        }
+
+        function onAnswerTap(answerIndex) {
+          if (quizLocked || activeLayer !== "quiz") return;
+          if (!quizQuestions.length || questionIndex >= quizQuestions.length) return;
+
+          quizLocked = true;
+          const q = quizQuestions[questionIndex];
+          const chosen = q.answers[answerIndex];
+          if (!chosen) {
+            quizLocked = false;
+            return;
+          }
+
+          if (chosen.correct) score += 1;
+
+          const buttons = quizAnswers ? quizAnswers.querySelectorAll(".quiz-answer") : [];
+          buttons.forEach(function (btn, i) {
+            btn.disabled = true;
+            if (i === answerIndex) {
+              btn.classList.add(chosen.correct ? "is-correct" : "is-wrong");
+            }
+            if (!chosen.correct && q.answers[i] && q.answers[i].correct) {
+              btn.classList.add("is-correct");
+            }
+          });
+
+          advanceTimer = window.setTimeout(function () {
+            questionIndex += 1;
+            renderQuestion();
+          }, ADVANCE_MS);
+        }
+
+        function startQuiz() {
+          resetQuizState();
+          renderQuestion();
+        }
+
+        function resetVideo() {
+          if (!videoEl) return;
+          videoEl.pause();
+          try {
+            videoEl.currentTime = 0;
+          } catch (_) {}
+        }
+
+        function playVideo() {
+          if (!videoEl || !videoEl.src) return;
+          void videoEl.play().catch(function () {});
+        }
+
+        function setPhotoSrc(raw) {
+          const src = resolveImageSrc(raw);
+          if (photoImg && src) {
+            photoImg.src = src;
+            photoImg.alt = "Statikus kép";
+          }
+        }
+
+        function setVideoSrc(raw) {
+          if (!videoEl) return;
+          const src = resolveMediaUrl(raw);
+          if (!src) return;
+          const wasActive = activeLayer === "video";
+          resetVideo();
+          videoEl.src = src;
+          videoEl.load();
+          if (wasActive) playVideo();
+        }
+
+        function setActiveLayer(name) {
+          const next = String(name ?? "").trim().toLowerCase();
+          if (next !== "photo" && next !== "video" && next !== "quiz") return;
+
+          if (activeLayer === "video" && next !== "video") {
+            resetVideo();
+          }
+          if (activeLayer === "quiz" && next !== "quiz") {
+            clearAdvanceTimer();
+          }
+
+          activeLayer = next;
+
+          for (const key of Object.keys(LAYERS)) {
+            const el = LAYERS[key];
+            if (!el) continue;
+            const on = key === next;
+            el.classList.toggle("is-active", on);
+            el.setAttribute("aria-hidden", on ? "false" : "true");
+            el.style.zIndex = on ? "999" : "0";
+          }
+
+          if (next === "video") {
+            playVideo();
+          }
+          if (next === "quiz") {
+            startQuiz();
+          }
+
+          setStatus(
+            "MQTT // " +
+              next.toUpperCase() +
+              " // " +
+              (mqttClient && mqttClient.connected ? "OK" : "…"),
+          );
+        }
+
+        function handleTopic(topic, message) {
+          const text = payloadText(message).trim();
+          switch (topic) {
+            case "smallscreen/layer":
+              setActiveLayer(text);
+              break;
+            case "smallscreen/photo":
+              setPhotoSrc(text);
+              break;
+            case "smallscreen/video":
+              setVideoSrc(text);
+              break;
+            case "smallscreen/quiz":
+              quizQuestions = parseQuizJson(text);
+              if (activeLayer === "quiz") startQuiz();
+              break;
+            default:
+              break;
+          }
+        }
+
+        function connectMqtt() {
+          const url = brokerUrl();
+          setStatus("MQTT // CONNECTING // " + url);
+
+          mqttClient = mqtt.connect(url, {
+            reconnectPeriod: 3000,
+            clean: true,
+            connectTimeout: 10000,
+          });
+
+          mqttClient.on("connect", function () {
+            setStatus("MQTT // CONNECTED // " + activeLayer.toUpperCase());
+            for (const topic of TOPICS) {
+              mqttClient.subscribe(topic, { qos: 0 });
+            }
+          });
+
+          mqttClient.on("reconnect", function () {
+            setStatus("MQTT // RECONNECTING");
+          });
+
+          mqttClient.on("close", function () {
+            setStatus("MQTT // DISCONNECTED");
+          });
+
+          mqttClient.on("error", function (err) {
+            setStatus("MQTT // ERROR // " + String(err && err.message ? err.message : err));
+          });
+
+          mqttClient.on("message", function (topic, message) {
+            handleTopic(topic, message);
+          });
+        }
+
+        if (typeof mqtt === "undefined") {
+          setStatus("MQTT // ERROR // mqtt.min.js not loaded");
+        } else {
+          connectMqtt();
+        }
+      })();
+    </script>
   </body>
 </html>
