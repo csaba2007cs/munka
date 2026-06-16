@@ -108,6 +108,7 @@
       }
     </style>
     <script src="https://unpkg.com/mqtt@5.10.4/dist/mqtt.min.js"></script>
+    <script src="/shared/js/mqtt-client.js"></script>
   </head>
   <body>
     <section id="layer-photo" class="layer is-active" aria-hidden="false">
@@ -202,27 +203,10 @@
         let cheerAudio = null;
         let mqttClient = null;
 
-        function brokerUrl() {
-          const params = new URLSearchParams(window.location.search);
-          const custom = params.get("broker");
-          if (custom) return custom.trim();
-          return "ws://" + window.location.hostname + ":9001";
-        }
+        const Mqtt = window.NanoportalMqtt;
 
         function setStatus(text) {
           if (statusEl) statusEl.textContent = text;
-        }
-
-        function payloadText(message) {
-          if (message == null) return "";
-          if (typeof message === "string") return message;
-          if (message instanceof ArrayBuffer) {
-            return new TextDecoder("utf-8").decode(message);
-          }
-          if (ArrayBuffer.isView(message)) {
-            return new TextDecoder("utf-8").decode(message);
-          }
-          return String(message);
         }
 
         function resolveImageSrc(raw) {
@@ -450,8 +434,8 @@
           setStatus("MQTT // " + next.toUpperCase() + " // " + (mqttClient && mqttClient.connected ? "OK" : "…"));
         }
 
-        function handleTopic(topic, message) {
-          const text = payloadText(message).trim();
+        function handleTopic(topic, text) {
+          text = String(text ?? "").trim();
           switch (topic) {
             case "bigscreen/layer":
               setActiveLayer(text);
@@ -488,44 +472,34 @@
           }
         }
 
-        function connectMqtt() {
-          const url = brokerUrl();
-          setStatus("MQTT // CONNECTING // " + url);
-
-          mqttClient = mqtt.connect(url, {
-            reconnectPeriod: 3000,
-            clean: true,
-            connectTimeout: 10000,
-          });
-
-          mqttClient.on("connect", function () {
-            setStatus("MQTT // CONNECTED // " + activeLayer.toUpperCase());
-            for (const topic of TOPICS) {
-              mqttClient.subscribe(topic, { qos: 0 });
-            }
-          });
-
-          mqttClient.on("reconnect", function () {
-            setStatus("MQTT // RECONNECTING");
-          });
-
-          mqttClient.on("close", function () {
-            setStatus("MQTT // DISCONNECTED");
-          });
-
-          mqttClient.on("error", function (err) {
-            setStatus("MQTT // ERROR // " + String(err && err.message ? err.message : err));
-          });
-
-          mqttClient.on("message", function (topic, message) {
-            handleTopic(topic, message);
-          });
-        }
-
-        if (typeof mqtt === "undefined") {
-          setStatus("MQTT // ERROR // mqtt.min.js not loaded");
+        if (!Mqtt) {
+          setStatus("MQTT // ERROR // mqtt-client.js not loaded");
         } else {
-          connectMqtt();
+          mqttClient = Mqtt.connect({
+            topics: TOPICS,
+            onMessage: handleTopic,
+            onStatus: function (state, detail) {
+              switch (state) {
+                case "connecting":
+                  setStatus("MQTT // CONNECTING // " + detail);
+                  break;
+                case "connected":
+                  setStatus("MQTT // CONNECTED // " + activeLayer.toUpperCase());
+                  break;
+                case "reconnecting":
+                  setStatus("MQTT // RECONNECTING");
+                  break;
+                case "disconnected":
+                  setStatus("MQTT // DISCONNECTED");
+                  break;
+                case "error":
+                  setStatus("MQTT // ERROR // " + detail);
+                  break;
+                default:
+                  break;
+              }
+            },
+          });
         }
       })();
     </script>

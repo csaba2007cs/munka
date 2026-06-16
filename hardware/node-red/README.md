@@ -12,10 +12,12 @@ Szükséges node-ok: **node-red-node-mqtt** (MQTT in), **http request** (beépí
 
 A flow egy **mqtt-broker** config node-ot hoz létre: `127.0.0.1:1883`. Ha a Mosquitto más címen fut, szerkeszd a broker node-ot.
 
-A **60" nagy kijelző** (`/bigscreen/`) közvetlenül MQTT-t figyel — nem a `state.php`-n keresztül. WebSocket a böngészőnek: **9001** (lásd [DOKUMENTACIO.md](../../DOKUMENTACIO.md) §6.3). Példa publish:
+**MQTT képernyők és operátor:** teljes topic térkép és retain szabályok — [docs/mqtt-setup.md](../../docs/mqtt-setup.md). WebSocket a böngészőknek: **9001**.
+
+A **60" nagy kijelző** (`/bigscreen/`) közvetlenül MQTT-t figyel — nem a `state.php`-n keresztül. Példa publish (retained réteg):
 
 ```bash
-mosquitto_pub -h 127.0.0.1 -t bigscreen/layer -m photo
+mosquitto_pub -h 127.0.0.1 -r -t bigscreen/layer -m photo
 mosquitto_pub -h 127.0.0.1 -t bigscreen/photo -m "/data/photobooth_....jpg"
 ```
 
@@ -26,6 +28,14 @@ mosquitto_pub -h 127.0.0.1 -t smallscreen/quiz -m '[{"question":"Teszt?","answer
 mosquitto_pub -h 127.0.0.1 -t smallscreen/layer -m quiz
 mosquitto_pub -h 127.0.0.1 -t smallscreen/photo -m "/shared/assets/images/small-idle.svg"
 mosquitto_pub -h 127.0.0.1 -t smallscreen/layer -m photo
+```
+
+**Operátor tablet** (`/admin/`) — MQTT publish, nem `state.php` (§6.2):
+
+```bash
+mosquitto_pub -h 127.0.0.1 -t session/control -m start
+mosquitto_pub -h 127.0.0.1 -t session/group_contact -m '{"emails":["csoport@pelda.hu"],"phones":["+36123456789"]}'
+mosquitto_pub -h 127.0.0.1 -t bigscreen/layer -m celebration
 ```
 
 A kvíz befejezésekor a kiosk `smallscreen/quiz/result` topicra küldi az eredményt (`{"score":…,"total":…}`).

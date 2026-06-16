@@ -7,403 +7,1391 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700&family=Rajdhani:wght@500;600;700&family=Roboto+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700&family=Rajdhani:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/shared/css/theme.css" />
-    <link rel="stylesheet" href="/shared/css/components.css" />
-    <link rel="stylesheet" href="/admin/admin.css" />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        font-size: 18px;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100%;
+        background: linear-gradient(180deg, #051018 0%, #0a1a28 100%);
+        color: #e8f4ff;
+        font-family: Rajdhani, system-ui, sans-serif;
+        touch-action: manipulation;
+      }
+
+      .sticky-header {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.75rem 1rem;
+        background: rgba(5, 16, 24, 0.95);
+        border-bottom: 1px solid rgba(0, 191, 255, 0.25);
+        backdrop-filter: blur(8px);
+      }
+
+      .brand {
+        margin: 0;
+        font-family: Orbitron, sans-serif;
+        font-size: 1rem;
+        letter-spacing: 0.08em;
+        color: #00bfff;
+      }
+
+      .mqtt-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+      }
+
+      .mqtt-pill::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #888;
+      }
+
+      .mqtt-pill.is-connected {
+        border-color: #3ddc84;
+        color: #d8ffe8;
+      }
+
+      .mqtt-pill.is-connected::before {
+        background: #3ddc84;
+      }
+
+      .mqtt-pill.is-connecting::before {
+        background: #ffc107;
+        animation: pulse 1s infinite;
+      }
+
+      .mqtt-pill.is-error {
+        border-color: #ff5c7a;
+        color: #ffe8ec;
+      }
+
+      .mqtt-pill.is-error::before {
+        background: #ff5c7a;
+      }
+
+      .quiz-result-line {
+        margin: 0;
+        width: 100%;
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.55);
+        text-align: right;
+      }
+
+      .quiz-result-line.is-visible {
+        color: #00bfff;
+      }
+
+      @keyframes pulse {
+        50% {
+          opacity: 0.4;
+        }
+      }
+
+      main {
+        padding: 1rem;
+        padding-bottom: 5rem;
+        max-width: 960px;
+        margin: 0 auto;
+      }
+
+      section.panel {
+        margin-bottom: 1.25rem;
+        padding: 1rem;
+        border: 1px solid rgba(0, 191, 255, 0.2);
+        border-radius: 12px;
+        background: rgba(0, 40, 60, 0.35);
+      }
+
+      .section-title {
+        margin: 0 0 0.5rem;
+        font-family: Orbitron, sans-serif;
+        font-size: 1rem;
+        color: #00bfff;
+        letter-spacing: 0.06em;
+      }
+
+      .section-lead {
+        margin: 0 0 0.75rem;
+        font-size: 0.95rem;
+        color: rgba(255, 255, 255, 0.55);
+      }
+
+      .btn-row,
+      .action-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+
+      button,
+      .btn {
+        min-height: 56px;
+        padding: 0.65rem 1rem;
+        border-radius: 10px;
+        border: 2px solid rgba(0, 191, 255, 0.45);
+        background: rgba(0, 40, 60, 0.55);
+        color: #e8f4ff;
+        font-family: Rajdhani, sans-serif;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+
+      button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      button:active:not(:disabled) {
+        background: rgba(0, 191, 255, 0.2);
+      }
+
+      .btn-start {
+        border-color: #3ddc84;
+        background: rgba(61, 220, 132, 0.2);
+        color: #d8ffe8;
+        flex: 1;
+        min-width: 7rem;
+      }
+
+      .btn-pause {
+        border-color: #ffc107;
+        background: rgba(255, 193, 7, 0.15);
+        color: #fff8e0;
+        flex: 1;
+        min-width: 7rem;
+      }
+
+      .btn-reset {
+        border-color: #ff5c7a;
+        background: rgba(255, 92, 122, 0.18);
+        color: #ffe8ec;
+        flex: 1;
+        min-width: 7rem;
+      }
+
+      .btn-primary {
+        border-color: #00bfff;
+        background: rgba(0, 191, 255, 0.25);
+      }
+
+      .btn-ghost {
+        border-color: rgba(255, 255, 255, 0.25);
+        background: transparent;
+      }
+
+      input[type="text"],
+      input[type="email"],
+      input[type="tel"],
+      input[type="url"],
+      textarea {
+        width: 100%;
+        min-height: 48px;
+        padding: 0.6rem 0.75rem;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 191, 255, 0.35);
+        background: rgba(0, 20, 30, 0.6);
+        color: #e8f4ff;
+        font-family: Rajdhani, sans-serif;
+        font-size: 1rem;
+      }
+
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+        font-family: ui-monospace, monospace;
+        font-size: 0.85rem;
+      }
+
+      label.field-label {
+        display: block;
+        margin: 0.5rem 0 0.25rem;
+        font-size: 0.9rem;
+        color: rgba(255, 255, 255, 0.7);
+      }
+
+      .contact-row {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        margin-bottom: 0.5rem;
+      }
+
+      .contact-row input {
+        flex: 1;
+      }
+
+      .contact-row button {
+        min-width: 3rem;
+        min-height: 48px;
+        padding: 0.5rem;
+      }
+
+      .visitor-card {
+        border: 1px solid rgba(0, 191, 255, 0.2);
+        border-radius: 10px;
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
+        background: rgba(0, 20, 30, 0.4);
+      }
+
+      .visitor-card__head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        font-weight: 700;
+      }
+
+      .visitor-thumb {
+        width: 100%;
+        max-width: 200px;
+        aspect-ratio: 4 / 3;
+        object-fit: cover;
+        border-radius: 8px;
+        background: #000;
+        margin: 0.5rem 0;
+        display: none;
+      }
+
+      .visitor-thumb.is-visible {
+        display: block;
+      }
+
+      .ip-cam-wrap {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        background: #000;
+        border-radius: 8px;
+        overflow: hidden;
+        margin-top: 0.5rem;
+      }
+
+      .ip-cam-wrap img,
+      .ip-cam-wrap video {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+      }
+
+      .ip-cam-placeholder {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: rgba(255, 255, 255, 0.4);
+        font-size: 0.95rem;
+        text-align: center;
+        padding: 1rem;
+      }
+
+      .welcome-thumb {
+        max-width: 240px;
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        object-fit: cover;
+        border-radius: 8px;
+        background: #000;
+        margin: 0.5rem 0;
+        display: none;
+      }
+
+      .welcome-thumb.is-visible {
+        display: block;
+      }
+
+      .field-error,
+      .camera-error {
+        margin: 0.5rem 0 0;
+        padding: 0.5rem 0.75rem;
+        border-radius: 8px;
+        background: rgba(255, 92, 122, 0.2);
+        border: 1px solid #ff5c7a;
+        color: #ffe8ec;
+        font-size: 0.95rem;
+      }
+
+      .field-error[hidden],
+      .camera-error[hidden] {
+        display: none;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      .toast {
+        position: fixed;
+        left: 1rem;
+        right: 1rem;
+        bottom: 1rem;
+        z-index: 200;
+        padding: 0.85rem 1rem;
+        border-radius: 10px;
+        font-weight: 600;
+        text-align: center;
+        transform: translateY(120%);
+        transition: transform 0.25s ease;
+      }
+
+      .toast.is-visible {
+        transform: translateY(0);
+      }
+
+      .toast.is-ok {
+        background: rgba(61, 220, 132, 0.92);
+        color: #052010;
+      }
+
+      .toast.is-err {
+        background: rgba(255, 92, 122, 0.92);
+        color: #fff;
+      }
+
+      .cam-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 150;
+        display: none;
+        flex-direction: column;
+        background: rgba(0, 0, 0, 0.92);
+        padding: 1rem;
+      }
+
+      .cam-modal.is-open {
+        display: flex;
+      }
+
+      .cam-modal video {
+        flex: 1;
+        width: 100%;
+        max-height: 70vh;
+        object-fit: contain;
+        background: #000;
+        border-radius: 8px;
+      }
+
+      .cam-modal .action-row {
+        margin-top: 1rem;
+      }
+
+      input[type="file"] {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
+      }
+    </style>
+    <script src="https://unpkg.com/mqtt@5.10.4/dist/mqtt.min.js"></script>
+    <script src="/shared/js/mqtt-client.js"></script>
   </head>
   <body>
-    <div class="app-frame admin-root">
-      <header class="admin-header">
-        <p class="admin-brand">Nanoportal — operátor</p>
-        <div id="status-banner" class="status-banner is-idle" role="status" aria-live="polite">
-          <span class="status-banner__label">Betöltés…</span>
-          <span class="status-banner__meta" id="status-banner-meta"></span>
+    <header class="sticky-header">
+      <p class="brand">NANOPORTAL // OPERÁTOR</p>
+      <div>
+        <p id="mqtt-status" class="mqtt-pill is-connecting" role="status" aria-live="polite">MQTT …</p>
+        <p id="quiz-result-line" class="quiz-result-line" hidden aria-live="polite"></p>
+      </div>
+    </header>
+
+    <main>
+      <section class="panel" aria-labelledby="sec-session">
+        <h2 class="section-title" id="sec-session">Élmény vezérlés</h2>
+        <div class="btn-row">
+          <button type="button" class="btn-start" id="btn-session-start" disabled>START</button>
+          <button type="button" class="btn-pause" id="btn-session-pause" disabled>PAUSE</button>
+          <button type="button" class="btn-reset" id="btn-session-reset" disabled>RESET</button>
         </div>
-        <nav class="admin-tabs" role="tablist" aria-label="Nézetek">
-          <button
-            type="button"
-            role="tab"
-            id="tab-control"
-            class="admin-tab is-active"
-            aria-selected="true"
-            aria-controls="view-control"
-          >
-            Irányítás
+      </section>
+
+      <section class="panel" aria-labelledby="sec-big">
+        <h2 class="section-title" id="sec-big">Nagy kijelző (60")</h2>
+        <div class="btn-row">
+          <button type="button" class="btn-primary" data-publish-layer="bigscreen/layer" data-layer="photo" disabled>
+            Show Photo
           </button>
-          <button
-            type="button"
-            role="tab"
-            id="tab-photobooth"
-            class="admin-tab"
-            aria-selected="false"
-            aria-controls="view-photobooth"
-          >
-            Photobooth
+          <button type="button" class="btn-primary" data-publish-layer="bigscreen/layer" data-layer="video" disabled>
+            Play Video
           </button>
-          <button
-            type="button"
-            role="tab"
-            id="tab-visitors"
-            class="admin-tab"
-            aria-selected="false"
-            aria-controls="view-visitors"
-          >
-            Látogatók
+          <button type="button" class="btn-primary" data-publish-layer="bigscreen/layer" data-layer="celebration" disabled>
+            Celebration
           </button>
-          <button
-            type="button"
-            role="tab"
-            id="tab-screens"
-            class="admin-tab"
-            aria-selected="false"
-            aria-controls="view-screens"
-          >
-            Képernyők
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="sec-small">
+        <h2 class="section-title" id="sec-small">Érintőképernyő (21")</h2>
+        <div class="btn-row">
+          <button type="button" class="btn-primary" data-publish-layer="smallscreen/layer" data-layer="photo" disabled>
+            Show Image
           </button>
-          <button
-            type="button"
-            role="tab"
-            id="tab-hardware"
-            class="admin-tab"
-            aria-selected="false"
-            aria-controls="view-hardware"
-          >
-            Hardver
+          <button type="button" class="btn-primary" data-publish-layer="smallscreen/layer" data-layer="video" disabled>
+            Play Video
           </button>
-        </nav>
-        <p class="admin-sync-line hud-sub" id="admin-sync" aria-live="polite">Szinkronizálás…</p>
-      </header>
+          <button type="button" class="btn-primary" data-publish-layer="smallscreen/layer" data-layer="quiz" disabled>
+            Show Quiz
+          </button>
+        </div>
+      </section>
 
-      <main class="admin-main">
-        <section
-          id="view-control"
-          class="admin-view"
-          role="tabpanel"
-          aria-labelledby="tab-control"
-        >
-          <div class="panel panel-block">
-            <h2 class="section-title">Élmény vezérlése</h2>
-            <p class="section-lead" id="control-hint">
-              Ellenőrizd a névsort, majd indítsd az élményt. Szünet és folytatás futás közben.
-            </p>
-            <div class="controls-primary">
-              <button type="button" class="btn-neon btn-success btn-primary-action" id="btn-start">
-                Indítás
-              </button>
-              <button type="button" class="btn-neon btn-primary-action" id="btn-pause">Szünet</button>
-              <button type="button" class="btn-neon btn-primary-action" id="btn-resume">Folytatás</button>
-            </div>
-          </div>
+      <section class="panel" aria-labelledby="sec-ipcam">
+        <h2 class="section-title" id="sec-ipcam">IP kamera</h2>
+        <p class="section-lead">MJPEG vagy HLS (.m3u8) stream előnézet.</p>
+        <label class="field-label" for="ip-cam-url">Stream URL</label>
+        <input type="url" id="ip-cam-url" autocomplete="off" spellcheck="false" />
+        <div class="action-row" style="margin-top: 0.5rem">
+          <button type="button" class="btn-ghost" id="btn-ip-cam-apply">Alkalmaz</button>
+        </div>
+        <div class="ip-cam-wrap" id="ip-cam-wrap">
+          <img id="ip-cam-mjpeg" alt="" hidden />
+          <video id="ip-cam-hls" playsinline muted hidden></video>
+          <p class="ip-cam-placeholder" id="ip-cam-placeholder">Nincs stream</p>
+        </div>
+        <p class="field-error" id="ip-cam-error" hidden></p>
+      </section>
 
-          <div class="panel panel-block">
-            <h2 class="section-title">Névsor</h2>
-            <p class="section-lead">Egy név soronként. Mentés után jelöld véglegesnek, ha rendben van.</p>
-            <label class="field-label" for="players-input">Játékosok nevei</label>
-            <textarea
-              id="players-input"
-              class="players-field field-input"
-              placeholder="Kovács Anna&#10;Nagy Péter"
-              aria-describedby="players-confirmed-hint"
-            ></textarea>
-            <div class="action-row">
-              <button type="button" class="btn-neon" id="btn-players-save">Névsor mentése</button>
-              <button type="button" class="btn-neon btn-success" id="btn-players-confirmed">
-                Névsor rendben
-              </button>
-            </div>
-            <p class="hint-text" id="players-confirmed-hint"></p>
-          </div>
+      <section class="panel" aria-labelledby="sec-contact">
+        <h2 class="section-title" id="sec-contact">Csoport elérhetőség</h2>
+        <p class="section-lead">E-mail és telefon — küldés a „Képernyőkre küldés” gombbal.</p>
+        <h3 class="field-label">E-mail</h3>
+        <div id="email-rows"></div>
+        <button type="button" class="btn-ghost" id="btn-add-email">+ Add Email</button>
+        <h3 class="field-label" style="margin-top: 1rem">Telefon</h3>
+        <div id="phone-rows"></div>
+        <button type="button" class="btn-ghost" id="btn-add-phone">+ Add Phone</button>
+      </section>
 
-          <div class="panel panel-block">
-            <h2 class="section-title">Tablet regisztrációk</h2>
-            <p class="section-lead">A látogatók a regisztrációs tableten adják meg a nevüket.</p>
-            <ul class="pending-list" id="pending-list" aria-label="Várólista"></ul>
-            <div class="action-row">
-              <button type="button" class="btn-neon btn-success" id="btn-pending-import">
-                Összes névsorba
-              </button>
-              <button type="button" class="btn-neon btn-danger" id="btn-pending-clear">
-                Várólista törlése
-              </button>
-            </div>
-          </div>
+      <section class="panel" aria-labelledby="sec-visitors">
+        <h2 class="section-title" id="sec-visitors">Látogatók (2–6)</h2>
+        <p class="section-lead">Hátsó kamera (environment) vagy fájl feltöltés.</p>
+        <div id="visitor-slots"></div>
+        <button type="button" class="btn-ghost" id="btn-add-visitor">+ Add Visitor</button>
+      </section>
 
-          <div class="panel panel-block">
-            <h2 class="section-title">Hangok</h2>
-            <p class="hud-sub" id="last-audio">Utolsó hang: —</p>
-            <div class="audio-grid" id="audio-grid"></div>
-          </div>
+      <section class="panel" aria-labelledby="sec-quiz">
+        <h2 class="section-title" id="sec-quiz">Kvíz bank</h2>
+        <p class="section-lead">JSON — üresen hagyva nem küldődik.</p>
+        <textarea id="quiz-json" spellcheck="false"></textarea>
+        <p class="field-error" id="quiz-error" hidden></p>
+      </section>
 
-          <details class="panel panel-block admin-advanced">
-            <summary class="section-title section-title--summary">Haladó beállítások</summary>
-            <div class="admin-advanced__body">
-              <h3 class="subsection-title">Nagy kijelző — kamera</h3>
-              <p class="section-lead">Stream URL, amit a fő TV megjelenít (pl. MJPEG).</p>
-              <label class="field-label" for="camera-feed-url">Kamera címe</label>
-              <input
-                type="url"
-                id="camera-feed-url"
-                class="field-input"
-                placeholder="https://…"
-                autocomplete="off"
-              />
-              <div class="action-row">
-                <button type="button" class="btn-neon" id="btn-camera-save">Kamera URL mentése</button>
-              </div>
+      <section class="panel" aria-labelledby="sec-welcome">
+        <h2 class="section-title" id="sec-welcome">Üdvözlő fotó</h2>
+        <p class="section-lead">Operátor / ablakfotó — mindkét kijelzőre küldhető.</p>
+        <img id="welcome-thumb" class="welcome-thumb" alt="Üdvözlő előnézet" />
+        <p class="camera-error" id="welcome-camera-error" hidden></p>
+        <div class="action-row">
+          <button type="button" class="btn-primary" id="btn-welcome-capture">Fotó készítése</button>
+          <button type="button" class="btn-ghost" id="btn-welcome-file">Fájl / galéria</button>
+          <button type="button" class="btn-ghost" id="btn-welcome-retake" hidden>Újra</button>
+        </div>
+        <input type="file" id="welcome-file-input" accept="image/*" capture="environment" />
+      </section>
 
-              <h3 class="subsection-title">ElevenLabs (később)</h3>
-              <p class="section-lead">Helyőrző — éles szinkronhang későbbi körben.</p>
-              <label class="field-label" for="tts-text">Szöveg</label>
-              <textarea
-                id="tts-text"
-                class="field-input tts-field"
-                placeholder="Szintetizálandó szöveg…"
-              ></textarea>
-              <div class="action-row">
-                <button type="button" class="btn-neon" id="tts-send">TTS jelölés</button>
-              </div>
-            </div>
-          </details>
+      <section class="panel">
+        <div class="action-row">
+          <button type="button" class="btn-primary" id="btn-send-screens" disabled>Képernyőkre küldés</button>
+          <button type="button" class="btn-primary" id="btn-send-welcome" disabled>Üdvözlő fotó küldése</button>
+        </div>
+      </section>
+    </main>
 
-          <div class="panel panel-block admin-danger-zone">
-            <h2 class="section-title section-title--danger">Veszélyes műveletek</h2>
-            <p class="section-lead">
-              Ezek megszakítják vagy nullázzák az élményt. Csak akkor használd, ha biztos vagy benne.
-            </p>
-            <div class="danger-grid">
-              <button
-                type="button"
-                class="btn-neon btn-danger"
-                id="btn-stop"
-                title="Élmény megszakít, kvíz zárol. Újraindítható."
-              >
-                Megszakítás
-              </button>
-              <button
-                type="button"
-                class="btn-neon btn-danger"
-                id="btn-end-session"
-                title="Kör formálisan lezárva."
-              >
-                Lezárás
-              </button>
-              <button type="button" class="btn-neon btn-danger" id="btn-reset">Teljes reset</button>
-            </div>
-          </div>
-        </section>
-
-        <section
-          id="view-photobooth"
-          class="admin-view hidden"
-          role="tabpanel"
-          aria-labelledby="tab-photobooth"
-          hidden
-        >
-          <div class="panel panel-block photobooth">
-            <div class="photobooth-capture">
-              <h2 class="section-title">1. Kamera</h2>
-              <p class="section-lead">Indítsd a kamerát, majd készíts felvételt (3 mp visszaszámlálás).</p>
-              <p class="hint-text" id="cam-secure-hint" hidden></p>
-              <div class="video-wrap" id="cam-live-wrap">
-                <video id="cam-preview" playsinline webkit-playsinline autoplay muted></video>
-              </div>
-              <input type="file" id="cam-file-fallback" class="hidden" accept="image/*" capture="user" />
-              <div class="action-row shutter-row">
-                <button type="button" class="btn-neon" id="cam-start">Kamera be</button>
-                <button type="button" class="btn-neon" id="cam-file-pick">Fájl / galéria</button>
-                <button type="button" class="btn-neon btn-danger" id="cam-stop">Kamera ki</button>
-                <div class="countdown" id="countdown" aria-live="polite" aria-label="Visszaszámlálás"></div>
-                <button type="button" class="btn-neon btn-cta" id="cam-capture">Felvétel</button>
-              </div>
-              <canvas id="cam-canvas" class="hidden" aria-hidden="true"></canvas>
-            </div>
-
-            <div class="photobooth-preview hidden" id="preview-panel">
-              <h2 class="section-title">2. Ellenőrzés</h2>
-              <p class="section-lead">Ha megfelel, töltsd fel. Ha nem, készíts új fotót.</p>
-              <img id="preview-shot" class="preview-shot" alt="Előnézet" />
-              <div class="action-row preview-actions">
-                <button type="button" class="btn-neon btn-success" id="cam-upload">Feltöltés</button>
-                <button type="button" class="btn-neon" id="cam-retake">Újrafotó</button>
-                <button type="button" class="btn-neon btn-danger" id="cam-cancel-preview">Mégse</button>
-              </div>
-            </div>
-
-            <div class="photobooth-uploaded hidden" id="uploaded-panel">
-              <h2 class="section-title">3. Kész</h2>
-              <img id="last-shot" class="preview-shot" alt="Utolsó feltöltött fotó" />
-              <div class="action-row">
-                <button type="button" class="btn-neon btn-cta" id="cam-new-shot">Új kép</button>
-              </div>
-            </div>
-
-            <div class="photobooth-recent">
-              <h2 class="section-title">Utolsó feltöltések</h2>
-              <ul class="upload-grid" id="upload-recent-list"></ul>
-            </div>
-          </div>
-        </section>
-
-        <section
-          id="view-visitors"
-          class="admin-view hidden"
-          role="tabpanel"
-          aria-labelledby="tab-visitors"
-          hidden
-        >
-          <div class="panel panel-block">
-            <h2 class="section-title">Látogatók (2–6 fő)</h2>
-            <p class="section-lead">Fotó és becenév a gratulációs képernyőhöz.</p>
-            <ul class="visitor-list" id="visitor-list" aria-label="Látogatók listája"></ul>
-          </div>
-
-          <div class="panel panel-block">
-            <h2 class="section-title">Új látogató</h2>
-            <label class="field-label" for="visitor-nickname">Becenév</label>
-            <input type="text" id="visitor-nickname" class="field-input" maxlength="24" autocomplete="off" />
-            <p class="hint-text" id="visitor-camera-hint"></p>
-            <div class="video-wrap" id="visitor-cam-wrap">
-              <video id="visitor-cam-preview" playsinline webkit-playsinline autoplay muted></video>
-            </div>
-            <input type="file" id="visitor-file-fallback" class="hidden" accept="image/*" capture="user" />
-            <div class="action-row">
-              <button type="button" class="btn-neon" id="visitor-cam-start">Kamera be</button>
-              <button type="button" class="btn-neon" id="visitor-cam-capture">Felvétel</button>
-              <button type="button" class="btn-neon" id="visitor-file-pick">Fájl / galéria</button>
-              <button type="button" class="btn-neon btn-success" id="visitor-save">Mentés</button>
-            </div>
-            <img id="visitor-preview-shot" class="preview-shot hidden" alt="Előnézet" />
-          </div>
-
-          <div class="panel panel-block">
-            <h2 class="section-title">Csoport elérhetőség (opcionális)</h2>
-            <label class="field-label" for="group-email">E-mail</label>
-            <input type="email" id="group-email" class="field-input" autocomplete="email" />
-            <label class="field-label" for="group-phone">Telefon</label>
-            <input type="tel" id="group-phone" class="field-input" autocomplete="tel" />
-            <div class="action-row">
-              <button type="button" class="btn-neon" id="btn-group-contact-save">Elérhetőség mentése</button>
-            </div>
-          </div>
-        </section>
-
-        <section
-          id="view-screens"
-          class="admin-view hidden"
-          role="tabpanel"
-          aria-labelledby="tab-screens"
-          hidden
-        >
-          <div class="panel panel-block">
-            <h2 class="section-title">Nagy kijelző (60")</h2>
-            <p class="section-lead" id="big-layer-status">Réteg: —</p>
-            <div class="screen-btn-grid">
-              <button type="button" class="btn-neon" data-big-layer="window">Ablakfotó</button>
-              <button type="button" class="btn-neon" data-big-layer="media">Videó / hang</button>
-              <button type="button" class="btn-neon" data-big-layer="celebration">Gratuláció</button>
-            </div>
-          </div>
-
-          <div class="panel panel-block">
-            <h2 class="section-title">Ablakfotó feltöltés</h2>
-            <p class="section-lead">Operátor fotója a sátorfal „ablakához”.</p>
-            <input type="file" id="window-photo-input" accept="image/*" capture="environment" />
-            <div class="action-row">
-              <button type="button" class="btn-neon btn-success" id="btn-window-upload">Ablakfotó mentése</button>
-            </div>
-            <img id="window-preview" class="preview-shot" alt="Ablak előnézet" hidden />
-          </div>
-
-          <div class="panel panel-block">
-            <h2 class="section-title">Érintőképernyő (21")</h2>
-            <p class="section-lead" id="small-layer-status">Réteg: —</p>
-            <div class="screen-btn-grid">
-              <button type="button" class="btn-neon" data-small-layer="idle">Várakozás</button>
-              <button type="button" class="btn-neon" data-small-layer="media">Videó / hang</button>
-              <button type="button" class="btn-neon" data-small-layer="quiz">Kvíz</button>
-            </div>
-          </div>
-        </section>
-
-        <section
-          id="view-hardware"
-          class="admin-view hidden"
-          role="tabpanel"
-          aria-labelledby="tab-hardware"
-          hidden
-        >
-          <div class="panel panel-block">
-            <h2 class="section-title">Kapcsolat</h2>
-            <p id="hardware-connection" class="hardware-status hardware-status--idle" role="status">
-              Nincs adat
-            </p>
-            <p class="section-lead">
-              Aktív, ha az utolsó szenzorjel 2 percen belül érkezett (ESP32 / Node-RED / teszt gomb).
-            </p>
-          </div>
-
-          <div class="panel panel-block">
-            <h2 class="section-title">Utolsó esemény</h2>
-            <dl class="hardware-last-event" id="hardware-last-event">
-              <div>
-                <dt>Eszköz</dt>
-                <dd id="hardware-last-device">—</dd>
-              </div>
-              <div>
-                <dt>Típus</dt>
-                <dd id="hardware-last-type">—</dd>
-              </div>
-              <div>
-                <dt>Idő</dt>
-                <dd id="hardware-last-at">—</dd>
-              </div>
-            </dl>
-          </div>
-
-          <div class="panel panel-block">
-            <h2 class="section-title">Zóna állapot</h2>
-            <div class="hardware-zones" id="hardware-zones"></div>
-          </div>
-
-          <div class="panel panel-block">
-            <h2 class="section-title">Eseménynapló</h2>
-            <ul class="hardware-log" id="hardware-event-log" aria-live="polite"></ul>
-            <div class="action-row">
-              <button type="button" class="btn-neon btn-danger" id="btn-hardware-clear-log">
-                Napló törlése
-              </button>
-            </div>
-          </div>
-
-          <div class="panel panel-block">
-            <h2 class="section-title">Teszt és vezérlés</h2>
-            <p class="section-lead">
-              Teszt patch a state API felé — hasznos Node-RED / ESP32 bekötés előtt.
-            </p>
-            <div class="hardware-test-grid">
-              <button type="button" class="btn-neon" id="btn-hw-test-motion">
-                Teszt: mozgás (zóna A)
-              </button>
-              <button type="button" class="btn-neon" id="btn-hw-test-door">
-                Teszt: ajtó nyitva
-              </button>
-              <button type="button" class="btn-neon" id="btn-hw-led-a-on">
-                LED zóna A — be
-              </button>
-              <button type="button" class="btn-neon" id="btn-hw-led-a-off">
-                LED zóna A — ki
-              </button>
-            </div>
-          </div>
-        </section>
-      </main>
+    <div id="cam-modal" class="cam-modal" aria-hidden="true">
+      <p class="section-title" id="cam-modal-title">Fotó</p>
+      <video id="cam-modal-video" playsinline autoplay muted></video>
+      <p class="camera-error" id="cam-modal-error" hidden></p>
+      <div class="action-row">
+        <button type="button" class="btn-primary" id="cam-modal-shutter">Felvétel</button>
+        <button type="button" class="btn-ghost" id="cam-modal-file">Fájl / galéria</button>
+        <button type="button" class="btn-ghost" id="cam-modal-cancel">Mégse</button>
+      </div>
+      <input type="file" id="cam-modal-file-input" accept="image/*" capture="environment" />
     </div>
 
-    <div id="admin-toast" class="admin-toast" role="alert" aria-live="assertive" hidden></div>
+    <canvas id="capture-canvas" class="hidden" aria-hidden="true"></canvas>
+    <p id="toast" class="toast" role="status" aria-live="polite"></p>
 
-    <script type="module" src="/admin/admin.js"></script>
+    <script>
+      (function () {
+        const CONFIG = {
+          mqttBroker: null,
+          ipCameraUrl: "http://192.168.4.1:8080/video.mjpg",
+          quizJsonDefault:
+            '[{"question":"Melyik a helyes?","answers":[{"text":"A válasz","correct":true},{"text":"B válasz","correct":false}]}]',
+          minVisitors: 2,
+          maxVisitors: 6,
+        };
+
+        const LS_IP_CAM = "nanoportal.admin.ipCameraUrl";
+        const ADMIN_TOPICS = ["smallscreen/quiz/result"];
+
+        const ENV_CAMERA_ATTEMPTS = [
+          {
+            video: {
+              facingMode: { ideal: "environment" },
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            },
+            audio: false,
+          },
+          { video: { facingMode: { ideal: "environment" } }, audio: false },
+          { video: { facingMode: "environment" }, audio: false },
+          { video: true, audio: false },
+        ];
+
+        const BACK_CAMERA_LABEL = /back|rear|environment|hátsó|hátul/i;
+
+        const Mqtt = window.NanoportalMqtt;
+        let mqttClient = null;
+        let mqttConnected = false;
+        let activeStream = null;
+        let hlsInstance = null;
+        let camModalTarget = null;
+        let welcomePhotoDataUrl = "";
+
+        const visitors = [];
+
+        const mqttStatusEl = document.getElementById("mqtt-status");
+        const quizResultLineEl = document.getElementById("quiz-result-line");
+        const toastEl = document.getElementById("toast");
+        const visitorSlotsEl = document.getElementById("visitor-slots");
+        const emailRowsEl = document.getElementById("email-rows");
+        const phoneRowsEl = document.getElementById("phone-rows");
+        const quizJsonEl = document.getElementById("quiz-json");
+        const quizErrorEl = document.getElementById("quiz-error");
+        const captureCanvas = document.getElementById("capture-canvas");
+        const camModal = document.getElementById("cam-modal");
+        const camModalVideo = document.getElementById("cam-modal-video");
+        const camModalError = document.getElementById("cam-modal-error");
+        const camModalTitle = document.getElementById("cam-modal-title");
+        const welcomeThumb = document.getElementById("welcome-thumb");
+        const welcomeCameraError = document.getElementById("welcome-camera-error");
+        const ipCamUrlEl = document.getElementById("ip-cam-url");
+        const ipCamMjpeg = document.getElementById("ip-cam-mjpeg");
+        const ipCamHls = document.getElementById("ip-cam-hls");
+        const ipCamPlaceholder = document.getElementById("ip-cam-placeholder");
+        const ipCamError = document.getElementById("ip-cam-error");
+
+        function setQuizResultLine(score, total) {
+          if (!quizResultLineEl) return;
+          if (score == null || total == null) {
+            quizResultLineEl.hidden = true;
+            quizResultLineEl.textContent = "";
+            quizResultLineEl.classList.remove("is-visible");
+            return;
+          }
+          quizResultLineEl.hidden = false;
+          quizResultLineEl.classList.add("is-visible");
+          quizResultLineEl.textContent = "Kvíz: " + score + " / " + total;
+        }
+
+        function setMqttStatus(state, text) {
+          if (!mqttStatusEl) return;
+          mqttStatusEl.textContent = text;
+          mqttStatusEl.className = "mqtt-pill " + state;
+        }
+
+        function handleAdminMqttMessage(topic, text) {
+          if (topic !== "smallscreen/quiz/result") return;
+          try {
+            const data = JSON.parse(text);
+            const score = Number(data.score);
+            const total = Number(data.total);
+            if (Number.isFinite(score) && Number.isFinite(total)) {
+              setQuizResultLine(score, total);
+            }
+          } catch (_) {}
+        }
+
+        function updatePublishButtons() {
+          const disabled = !mqttConnected;
+          document.querySelectorAll("button[data-publish-layer], #btn-session-start, #btn-session-pause, #btn-session-reset, #btn-send-screens, #btn-send-welcome").forEach(function (btn) {
+            btn.disabled = disabled;
+          });
+        }
+
+        let toastTimer = null;
+        function showToast(message, ok) {
+          if (!toastEl) return;
+          toastEl.textContent = message;
+          toastEl.className = "toast is-visible " + (ok ? "is-ok" : "is-err");
+          if (toastTimer) window.clearTimeout(toastTimer);
+          toastTimer = window.setTimeout(function () {
+            toastEl.classList.remove("is-visible");
+          }, 3200);
+        }
+
+        function publish(topic, payload) {
+          if (!Mqtt) return Promise.reject(new Error("MQTT kliens hiányzik."));
+          return Mqtt.publish(mqttClient, topic, payload);
+        }
+
+        function isRetryableConstraintError(err) {
+          const name = String(err && err.name ? err.name : "");
+          return name === "OverconstrainedError" || name === "ConstraintNotSatisfiedError";
+        }
+
+        function cameraErrorMessage(err) {
+          const name = String(err && err.name ? err.name : "");
+          if (name === "NotAllowedError") {
+            return "Kamera hozzáférés megtagadva. Engedélyezd a böngészőben, vagy válaszd a Fájl / galéria gombot.";
+          }
+          if (name === "NotFoundError") return "Nem található kamera. Használd a fájl feltöltést.";
+          if (name === "NotReadableError") return "A kamera foglalt. Zárd be a másik alkalmazást.";
+          if (name === "SecurityError") return "A kamera csak HTTPS-en érhető el. Használd a Fájl / galéria gombot.";
+          return String(err && err.message ? err.message : err) || "Kamera hiba";
+        }
+
+        function stopMediaStream(stream) {
+          if (!stream) return;
+          for (const track of stream.getTracks()) track.stop();
+        }
+
+        function stopActiveStream() {
+          stopMediaStream(activeStream);
+          activeStream = null;
+          if (camModalVideo) camModalVideo.srcObject = null;
+        }
+
+        function scoreBackCamera(device, index, total) {
+          const label = String(device.label || "");
+          if (BACK_CAMERA_LABEL.test(label)) return 0;
+          if (total > 1 && index === 0) return 1;
+          return 2;
+        }
+
+        async function requestEnvironmentCameraByDeviceId() {
+          let probe = null;
+          try {
+            probe = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          } catch {
+            return null;
+          }
+          stopMediaStream(probe);
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoInputs = devices.filter(function (d) {
+            return d.kind === "videoinput";
+          });
+          if (!videoInputs.length) return null;
+          const ordered = videoInputs
+            .map(function (device, index) {
+              return { device: device, index: index };
+            })
+            .sort(function (a, b) {
+              return (
+                scoreBackCamera(a.device, a.index, videoInputs.length) -
+                scoreBackCamera(b.device, b.index, videoInputs.length)
+              );
+            })
+            .map(function (row) {
+              return row.device;
+            });
+          for (const device of ordered) {
+            if (!device.deviceId) continue;
+            try {
+              return await navigator.mediaDevices.getUserMedia({
+                video: { deviceId: { exact: device.deviceId } },
+                audio: false,
+              });
+            } catch (err) {
+              if (isRetryableConstraintError(err)) continue;
+            }
+          }
+          return null;
+        }
+
+        async function requestEnvironmentCamera() {
+          if (!window.isSecureContext) {
+            throw new Error("Élő kamera csak HTTPS-en vagy localhoston. Használd a Fájl / galéria gombot.");
+          }
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error("A böngésző nem támogatja a kamerát.");
+          }
+          let lastError = null;
+          for (const constraints of ENV_CAMERA_ATTEMPTS) {
+            try {
+              return await navigator.mediaDevices.getUserMedia(constraints);
+            } catch (err) {
+              lastError = err;
+              if (isRetryableConstraintError(err)) continue;
+              throw err;
+            }
+          }
+          const byDevice = await requestEnvironmentCameraByDeviceId();
+          if (byDevice) return byDevice;
+          throw lastError || new Error("Nem sikerült elindítani a kamerát.");
+        }
+
+        function waitForVideoFrame(video, timeoutMs) {
+          timeoutMs = timeoutMs || 8000;
+          return new Promise(function (resolve, reject) {
+            if (video.videoWidth > 0 && video.videoHeight > 0) {
+              resolve();
+              return;
+            }
+            let settled = false;
+            const finish = function (fn) {
+              if (settled) return;
+              settled = true;
+              video.removeEventListener("loadedmetadata", onReady);
+              video.removeEventListener("resize", onReady);
+              window.clearTimeout(timer);
+              fn();
+            };
+            const onReady = function () {
+              if (video.videoWidth > 0 && video.videoHeight > 0) finish(resolve);
+            };
+            const timer = window.setTimeout(function () {
+              finish(function () {
+                reject(new Error("A kamera képe nem érkezett meg időben."));
+              });
+            }, timeoutMs);
+            video.addEventListener("loadedmetadata", onReady);
+            video.addEventListener("resize", onReady);
+            onReady();
+          });
+        }
+
+        async function attachStreamToVideo(video, stream) {
+          video.setAttribute("playsinline", "");
+          video.setAttribute("webkit-playsinline", "");
+          video.muted = true;
+          video.srcObject = stream;
+          await video.play();
+          await waitForVideoFrame(video);
+        }
+
+        function blobToDataUrl(blob) {
+          return new Promise(function (resolve, reject) {
+            const reader = new FileReader();
+            reader.onload = function () {
+              resolve(String(reader.result || ""));
+            };
+            reader.onerror = function () {
+              reject(new Error("Nem sikerült olvasni a képet."));
+            };
+            reader.readAsDataURL(blob);
+          });
+        }
+
+        async function captureFromVideo(video) {
+          await waitForVideoFrame(video);
+          const w = video.videoWidth;
+          const h = video.videoHeight;
+          if (!w || !h) throw new Error("Üres kamera kép.");
+          captureCanvas.width = w;
+          captureCanvas.height = h;
+          const ctx = captureCanvas.getContext("2d");
+          ctx.drawImage(video, 0, 0, w, h);
+          return new Promise(function (resolve, reject) {
+            captureCanvas.toBlob(
+              function (blob) {
+                if (!blob) {
+                  reject(new Error("Felvétel sikertelen."));
+                  return;
+                }
+                blobToDataUrl(blob).then(resolve).catch(reject);
+              },
+              "image/jpeg",
+              0.92,
+            );
+          });
+        }
+
+        function showCamError(el, message) {
+          if (!el) return;
+          if (message) {
+            el.hidden = false;
+            el.textContent = message;
+          } else {
+            el.hidden = true;
+            el.textContent = "";
+          }
+        }
+
+        async function openCamModal(title, target) {
+          camModalTarget = target;
+          if (camModalTitle) camModalTitle.textContent = title;
+          showCamError(camModalError, "");
+          camModal.classList.add("is-open");
+          camModal.setAttribute("aria-hidden", "false");
+          stopActiveStream();
+          try {
+            const stream = await requestEnvironmentCamera();
+            activeStream = stream;
+            await attachStreamToVideo(camModalVideo, stream);
+          } catch (err) {
+            showCamError(camModalError, cameraErrorMessage(err));
+          }
+        }
+
+        function closeCamModal() {
+          camModal.classList.remove("is-open");
+          camModal.setAttribute("aria-hidden", "true");
+          stopActiveStream();
+          camModalTarget = null;
+        }
+
+        function applyPhotoToTarget(dataUrl) {
+          if (!camModalTarget) return;
+          if (camModalTarget.type === "welcome") {
+            welcomePhotoDataUrl = dataUrl;
+            welcomeThumb.src = dataUrl;
+            welcomeThumb.classList.add("is-visible");
+            document.getElementById("btn-welcome-retake").hidden = false;
+            return;
+          }
+          if (camModalTarget.type === "visitor") {
+            const slot = visitors[camModalTarget.index];
+            if (!slot) return;
+            slot.photo = dataUrl;
+            const thumb = document.querySelector('[data-visitor-thumb="' + camModalTarget.index + '"]');
+            if (thumb) {
+              thumb.src = dataUrl;
+              thumb.classList.add("is-visible");
+            }
+          }
+        }
+
+        function createContactRow(container, type, value) {
+          const row = document.createElement("div");
+          row.className = "contact-row";
+          const input = document.createElement("input");
+          input.type = type === "email" ? "email" : "tel";
+          input.className = "contact-input";
+          input.dataset.contactType = type;
+          input.value = value || "";
+          input.placeholder = type === "email" ? "email@pelda.hu" : "+36 …";
+          const removeBtn = document.createElement("button");
+          removeBtn.type = "button";
+          removeBtn.className = "btn-ghost";
+          removeBtn.textContent = "−";
+          removeBtn.title = "Eltávolítás";
+          removeBtn.addEventListener("click", function () {
+            if (container.querySelectorAll(".contact-row").length <= 1) {
+              input.value = "";
+              return;
+            }
+            row.remove();
+          });
+          row.appendChild(input);
+          row.appendChild(removeBtn);
+          container.appendChild(row);
+        }
+
+        function collectContacts() {
+          const emails = [];
+          const phones = [];
+          document.querySelectorAll(".contact-input").forEach(function (input) {
+            const v = String(input.value || "").trim();
+            if (!v) return;
+            if (input.dataset.contactType === "email") emails.push(v);
+            else phones.push(v);
+          });
+          return { emails: emails, phones: phones };
+        }
+
+        function renderVisitorSlot(index) {
+          const card = document.createElement("div");
+          card.className = "visitor-card";
+          card.dataset.visitorIndex = String(index);
+          const head = document.createElement("div");
+          head.className = "visitor-card__head";
+          head.innerHTML = "<span>Látogató " + (index + 1) + "</span>";
+          if (index >= CONFIG.minVisitors) {
+            const removeBtn = document.createElement("button");
+            removeBtn.type = "button";
+            removeBtn.className = "btn-ghost";
+            removeBtn.textContent = "− Remove";
+            removeBtn.addEventListener("click", function () {
+              removeVisitorSlot(index);
+            });
+            head.appendChild(removeBtn);
+          }
+          const thumb = document.createElement("img");
+          thumb.className = "visitor-thumb";
+          thumb.alt = "Látogató " + (index + 1);
+          thumb.dataset.visitorThumb = String(index);
+          const nickLabel = document.createElement("label");
+          nickLabel.className = "field-label";
+          nickLabel.textContent = "Becenév";
+          nickLabel.htmlFor = "visitor-nick-" + index;
+          const nickInput = document.createElement("input");
+          nickInput.type = "text";
+          nickInput.id = "visitor-nick-" + index;
+          nickInput.maxLength = 24;
+          nickInput.autocomplete = "off";
+          nickInput.dataset.visitorNick = String(index);
+          nickInput.value = visitors[index].nickname || "";
+          nickInput.addEventListener("input", function () {
+            visitors[index].nickname = nickInput.value;
+          });
+          const err = document.createElement("p");
+          err.className = "camera-error";
+          err.hidden = true;
+          err.dataset.visitorError = String(index);
+          const actions = document.createElement("div");
+          actions.className = "action-row";
+          const takeBtn = document.createElement("button");
+          takeBtn.type = "button";
+          takeBtn.className = "btn-primary";
+          takeBtn.textContent = "Take Photo / Upload";
+          takeBtn.addEventListener("click", function () {
+            openCamModal("Látogató " + (index + 1), { type: "visitor", index: index });
+          });
+          const fileBtn = document.createElement("button");
+          fileBtn.type = "button";
+          fileBtn.className = "btn-ghost";
+          fileBtn.textContent = "Fájl / galéria";
+          const fileInput = document.createElement("input");
+          fileInput.type = "file";
+          fileInput.accept = "image/*";
+          fileInput.capture = "environment";
+          fileInput.addEventListener("change", function () {
+            const file = fileInput.files && fileInput.files[0];
+            if (!file) return;
+            blobToDataUrl(file)
+              .then(function (url) {
+                visitors[index].photo = url;
+                thumb.src = url;
+                thumb.classList.add("is-visible");
+                showCamError(err, "");
+              })
+              .catch(function (e) {
+                showCamError(err, String(e.message || e));
+              });
+            fileInput.value = "";
+          });
+          fileBtn.addEventListener("click", function () {
+            fileInput.click();
+          });
+          const retakeBtn = document.createElement("button");
+          retakeBtn.type = "button";
+          retakeBtn.className = "btn-ghost";
+          retakeBtn.textContent = "Re-take";
+          retakeBtn.addEventListener("click", function () {
+            visitors[index].photo = "";
+            thumb.removeAttribute("src");
+            thumb.classList.remove("is-visible");
+            openCamModal("Látogató " + (index + 1), { type: "visitor", index: index });
+          });
+          actions.appendChild(takeBtn);
+          actions.appendChild(fileBtn);
+          actions.appendChild(retakeBtn);
+          card.appendChild(head);
+          card.appendChild(thumb);
+          card.appendChild(nickLabel);
+          card.appendChild(nickInput);
+          card.appendChild(err);
+          card.appendChild(actions);
+          card.appendChild(fileInput);
+          if (visitors[index].photo) {
+            thumb.src = visitors[index].photo;
+            thumb.classList.add("is-visible");
+          }
+          return card;
+        }
+
+        function renderAllVisitors() {
+          visitorSlotsEl.innerHTML = "";
+          visitors.forEach(function (_, i) {
+            visitorSlotsEl.appendChild(renderVisitorSlot(i));
+          });
+          const addBtn = document.getElementById("btn-add-visitor");
+          if (addBtn) addBtn.disabled = visitors.length >= CONFIG.maxVisitors;
+        }
+
+        function addVisitorSlot() {
+          if (visitors.length >= CONFIG.maxVisitors) return;
+          visitors.push({ nickname: "", photo: "" });
+          renderAllVisitors();
+        }
+
+        function removeVisitorSlot(index) {
+          if (visitors.length <= CONFIG.minVisitors) return;
+          visitors.splice(index, 1);
+          renderAllVisitors();
+        }
+
+        function initVisitors() {
+          visitors.length = 0;
+          for (let i = 0; i < CONFIG.minVisitors; i++) {
+            visitors.push({ nickname: "", photo: "" });
+          }
+          renderAllVisitors();
+        }
+
+        function parseQuizJson(raw) {
+          let data;
+          try {
+            data = JSON.parse(raw);
+          } catch {
+            return { ok: false, error: "Érvénytelen JSON." };
+          }
+          if (!Array.isArray(data) || !data.length) {
+            return { ok: false, error: "Legalább egy kérdés szükséges." };
+          }
+          for (const row of data) {
+            if (!row || typeof row !== "object") {
+              return { ok: false, error: "Hibás kérdés formátum." };
+            }
+            const question = String(row.question || "").trim();
+            const answersRaw = Array.isArray(row.answers) ? row.answers : [];
+            const answers = [];
+            for (const a of answersRaw) {
+              if (!a || typeof a !== "object") continue;
+              const text = String(a.text || "").trim();
+              if (!text) continue;
+              answers.push({ text: text, correct: Boolean(a.correct) });
+            }
+            if (!question || answers.length < 2) {
+              return { ok: false, error: "Minden kérdéshez legalább 2 válasz kell." };
+            }
+          }
+          return { ok: true, data: data };
+        }
+
+        function isHlsUrl(url) {
+          return /\.m3u8(\?|$)/i.test(url) || url.toLowerCase().includes("m3u8");
+        }
+
+        function destroyHls() {
+          if (hlsInstance) {
+            hlsInstance.destroy();
+            hlsInstance = null;
+          }
+          if (ipCamHls) {
+            ipCamHls.pause();
+            ipCamHls.removeAttribute("src");
+            ipCamHls.hidden = true;
+          }
+        }
+
+        function applyIpCamera(url) {
+          const trimmed = String(url || "").trim();
+          localStorage.setItem(LS_IP_CAM, trimmed);
+          showCamError(ipCamError, "");
+          destroyHls();
+          if (ipCamMjpeg) {
+            ipCamMjpeg.hidden = true;
+            ipCamMjpeg.removeAttribute("src");
+          }
+          if (!trimmed) {
+            if (ipCamPlaceholder) ipCamPlaceholder.hidden = false;
+            return;
+          }
+          if (ipCamPlaceholder) ipCamPlaceholder.hidden = true;
+          if (isHlsUrl(trimmed)) {
+            if (ipCamMjpeg) ipCamMjpeg.hidden = true;
+            ipCamHls.hidden = false;
+            if (ipCamHls.canPlayType("application/vnd.apple.mpegurl")) {
+              ipCamHls.src = trimmed;
+              void ipCamHls.play().catch(function () {});
+              return;
+            }
+            const script = document.createElement("script");
+            script.src = "https://cdn.jsdelivr.net/npm/hls.js@1.5.7/dist/hls.min.js";
+            script.onload = function () {
+              if (!window.Hls || !window.Hls.isSupported()) {
+                showCamError(ipCamError, "HLS nem támogatott ezen a böngészőn.");
+                return;
+              }
+              hlsInstance = new window.Hls();
+              hlsInstance.loadSource(trimmed);
+              hlsInstance.attachMedia(ipCamHls);
+              hlsInstance.on(window.Hls.Events.MANIFEST_PARSED, function () {
+                void ipCamHls.play().catch(function () {});
+              });
+              hlsInstance.on(window.Hls.Events.ERROR, function (_, data) {
+                if (data.fatal) showCamError(ipCamError, "HLS stream hiba.");
+              });
+            };
+            script.onerror = function () {
+              showCamError(ipCamError, "hls.js betöltése sikertelen.");
+            };
+            document.head.appendChild(script);
+          } else {
+            ipCamHls.hidden = true;
+            ipCamMjpeg.hidden = false;
+            ipCamMjpeg.onerror = function () {
+              showCamError(ipCamError, "MJPEG stream nem érhető el.");
+            };
+            ipCamMjpeg.onload = function () {
+              showCamError(ipCamError, "");
+            };
+            ipCamMjpeg.src = trimmed + (trimmed.includes("?") ? "&" : "?") + "_t=" + Date.now();
+          }
+        }
+
+        function buildPlayersPayload() {
+          const out = [];
+          for (let i = 0; i < visitors.length; i++) {
+            const nick = String(visitors[i].nickname || "").trim();
+            const photo = String(visitors[i].photo || "").trim();
+            if (!nick || !photo) {
+              return { ok: false, error: "Minden látogatónak kell becenév és fotó (legalább " + CONFIG.minVisitors + " fő)." };
+            }
+            out.push({ photo: photo, name: nick.toUpperCase() });
+          }
+          if (out.length < CONFIG.minVisitors) {
+            return { ok: false, error: "Legalább " + CONFIG.minVisitors + " látogató szükséges." };
+          }
+          return { ok: true, data: out };
+        }
+
+        document.getElementById("btn-session-start").addEventListener("click", function () {
+          publish("session/control", "start")
+            .then(function () {
+              showToast("START elküldve", true);
+            })
+            .catch(function (e) {
+              showToast(String(e.message || e), false);
+            });
+        });
+        document.getElementById("btn-session-pause").addEventListener("click", function () {
+          publish("session/control", "pause")
+            .then(function () {
+              showToast("PAUSE elküldve", true);
+            })
+            .catch(function (e) {
+              showToast(String(e.message || e), false);
+            });
+        });
+        document.getElementById("btn-session-reset").addEventListener("click", function () {
+          publish("session/control", "reset")
+            .then(function () {
+              showToast("RESET elküldve", true);
+            })
+            .catch(function (e) {
+              showToast(String(e.message || e), false);
+            });
+        });
+
+        document.querySelectorAll("[data-publish-layer]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            const topic = btn.getAttribute("data-publish-layer");
+            const layer = btn.getAttribute("data-layer");
+            publish(topic, layer)
+              .then(function () {
+                showToast(topic + " → " + layer, true);
+              })
+              .catch(function (e) {
+                showToast(String(e.message || e), false);
+              });
+          });
+        });
+
+        document.getElementById("btn-add-email").addEventListener("click", function () {
+          createContactRow(emailRowsEl, "email", "");
+        });
+        document.getElementById("btn-add-phone").addEventListener("click", function () {
+          createContactRow(phoneRowsEl, "phone", "");
+        });
+        document.getElementById("btn-add-visitor").addEventListener("click", addVisitorSlot);
+
+        document.getElementById("btn-ip-cam-apply").addEventListener("click", function () {
+          applyIpCamera(ipCamUrlEl.value);
+        });
+        ipCamUrlEl.addEventListener("change", function () {
+          applyIpCamera(ipCamUrlEl.value);
+        });
+
+        document.getElementById("cam-modal-cancel").addEventListener("click", closeCamModal);
+        document.getElementById("cam-modal-shutter").addEventListener("click", function () {
+          captureFromVideo(camModalVideo)
+            .then(function (dataUrl) {
+              applyPhotoToTarget(dataUrl);
+              closeCamModal();
+              showToast("Fotó mentve", true);
+            })
+            .catch(function (e) {
+              showCamError(camModalError, String(e.message || e));
+            });
+        });
+        document.getElementById("cam-modal-file").addEventListener("click", function () {
+          document.getElementById("cam-modal-file-input").click();
+        });
+        document.getElementById("cam-modal-file-input").addEventListener("change", function (ev) {
+          const file = ev.target.files && ev.target.files[0];
+          if (!file) return;
+          blobToDataUrl(file)
+            .then(function (dataUrl) {
+              applyPhotoToTarget(dataUrl);
+              closeCamModal();
+              showToast("Fotó feltöltve", true);
+            })
+            .catch(function (e) {
+              showCamError(camModalError, String(e.message || e));
+            });
+          ev.target.value = "";
+        });
+
+        document.getElementById("btn-welcome-capture").addEventListener("click", function () {
+          showCamError(welcomeCameraError, "");
+          openCamModal("Üdvözlő fotó", { type: "welcome" });
+        });
+
+        document.getElementById("btn-welcome-file").addEventListener("click", function () {
+          document.getElementById("welcome-file-input").click();
+        });
+        document.getElementById("welcome-file-input").addEventListener("change", function (ev) {
+          const file = ev.target.files && ev.target.files[0];
+          if (!file) return;
+          blobToDataUrl(file)
+            .then(function (dataUrl) {
+              welcomePhotoDataUrl = dataUrl;
+              welcomeThumb.src = dataUrl;
+              welcomeThumb.classList.add("is-visible");
+              document.getElementById("btn-welcome-retake").hidden = false;
+              showCamError(welcomeCameraError, "");
+            })
+            .catch(function (e) {
+              showCamError(welcomeCameraError, String(e.message || e));
+            });
+          ev.target.value = "";
+        });
+        document.getElementById("btn-welcome-retake").addEventListener("click", function () {
+          welcomePhotoDataUrl = "";
+          welcomeThumb.classList.remove("is-visible");
+          welcomeThumb.removeAttribute("src");
+          document.getElementById("btn-welcome-retake").hidden = true;
+          document.getElementById("btn-welcome-capture").click();
+        });
+
+        document.getElementById("btn-send-screens").addEventListener("click", async function () {
+          const players = buildPlayersPayload();
+          if (!players.ok) {
+            showToast(players.error, false);
+            return;
+          }
+          const quizRaw = String(quizJsonEl.value || "").trim();
+          if (quizRaw) {
+            const parsed = parseQuizJson(quizRaw);
+            if (!parsed.ok) {
+              quizErrorEl.hidden = false;
+              quizErrorEl.textContent = parsed.error;
+              showToast(parsed.error, false);
+              return;
+            }
+            quizErrorEl.hidden = true;
+          } else {
+            quizErrorEl.hidden = true;
+          }
+          const contact = collectContacts();
+          try {
+            await publish("bigscreen/players", JSON.stringify(players.data));
+            await publish("session/group_contact", JSON.stringify(contact));
+            if (quizRaw) await publish("smallscreen/quiz", quizRaw);
+            showToast("Adatok elküldve", true);
+          } catch (e) {
+            showToast(String(e.message || e), false);
+          }
+        });
+
+        document.getElementById("btn-send-welcome").addEventListener("click", function () {
+          if (!welcomePhotoDataUrl) {
+            showToast("Előbb készíts üdvözlő fotót.", false);
+            return;
+          }
+          Promise.all([
+            publish("bigscreen/photo", welcomePhotoDataUrl),
+            publish("smallscreen/photo", welcomePhotoDataUrl),
+          ])
+            .then(function () {
+              showToast("Üdvözlő fotó elküldve", true);
+            })
+            .catch(function (e) {
+              showToast(String(e.message || e), false);
+            });
+        });
+
+        quizJsonEl.value = CONFIG.quizJsonDefault;
+        const savedCam = localStorage.getItem(LS_IP_CAM);
+        ipCamUrlEl.value = savedCam || CONFIG.ipCameraUrl;
+        createContactRow(emailRowsEl, "email", "");
+        createContactRow(phoneRowsEl, "phone", "");
+        initVisitors();
+        applyIpCamera(ipCamUrlEl.value);
+        updatePublishButtons();
+
+        if (!Mqtt) {
+          setMqttStatus("is-error", "mqtt-client.js hiányzik");
+        } else {
+          mqttClient = Mqtt.connect({
+            topics: ADMIN_TOPICS,
+            onMessage: handleAdminMqttMessage,
+            onStatus: function (state) {
+              switch (state) {
+                case "connecting":
+                  mqttConnected = false;
+                  setMqttStatus("is-connecting", "MQTT …");
+                  updatePublishButtons();
+                  break;
+                case "connected":
+                  mqttConnected = true;
+                  setMqttStatus("is-connected", "MQTT OK");
+                  updatePublishButtons();
+                  break;
+                case "reconnecting":
+                  mqttConnected = false;
+                  setMqttStatus("is-connecting", "MQTT újracsatlakozás");
+                  updatePublishButtons();
+                  break;
+                case "disconnected":
+                  mqttConnected = false;
+                  setMqttStatus("is-error", "MQTT lekapcsolva");
+                  updatePublishButtons();
+                  break;
+                case "error":
+                  mqttConnected = false;
+                  setMqttStatus("is-error", "MQTT hiba");
+                  updatePublishButtons();
+                  break;
+                default:
+                  break;
+              }
+            },
+          });
+        }
+
+        if (!window.isSecureContext) {
+          showCamError(
+            welcomeCameraError,
+            "Élő kamera csak HTTPS-en. Használd a Fájl / galéria gombot.",
+          );
+        }
+      })();
+    </script>
   </body>
 </html>

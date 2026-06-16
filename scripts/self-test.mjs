@@ -145,6 +145,7 @@ if (phpMissing) {
 const jsFiles = [
   "shared/js/state-sync.js",
   "shared/js/camera-capture.js",
+  "shared/js/mqtt-client.js",
   "shared/js/media-layer.js",
   "shared/js/layer-switch.js",
   "shared/js/quiz-panel.js",
@@ -207,15 +208,22 @@ if (!fs.existsSync(path.join(root, "docs", "roadmap-blaci.md"))) {
   fail("hiányzó fájl: docs/roadmap-blaci.md");
 } else ok("létezik: docs/roadmap-blaci.md");
 
+if (!fs.existsSync(path.join(root, "docs", "mqtt-setup.md"))) {
+  fail("hiányzó fájl: docs/mqtt-setup.md");
+} else ok("létezik: docs/mqtt-setup.md");
+
 const extraPaths = [
   "shared/css/components.css",
   "shared/js/camera-capture.js",
+  "shared/js/mqtt-client.js",
   "shared/celebration-templates.json",
   "shared/assets/celebration/crowd-europe.png",
   "shared/assets/celebration/crowd-nyc.png",
   "shared/quiz-panel/panel.html",
+  "admin/index.html",
   "bigscreen/index.html",
   "smallscreen/index.html",
+  "hardware/mosquitto/mosquitto.conf.example",
   "hardware/node-red/mqtt-to-state.flow.json",
   "hardware/esp32/state_patch_http.ino",
   "docs/design-tokens.md",
@@ -266,6 +274,10 @@ if (!bigscreenHtml.includes("mqtt.min.js") || !bigscreenHtml.includes("bigscreen
   fail("bigscreen/index.html: MQTT kiosk hiányzik");
 } else ok("bigscreen/index.html: MQTT kiosk");
 
+if (!bigscreenHtml.includes("/shared/js/mqtt-client.js") || !bigscreenHtml.includes("NanoportalMqtt")) {
+  fail("bigscreen/index.html: közös mqtt-client hiányzik");
+} else ok("bigscreen/index.html: mqtt-client.js");
+
 if (!bigscreenHtml.includes("bigscreen/photo") || !bigscreenHtml.includes("bigscreen/players")) {
   fail("bigscreen/index.html: MQTT photo/players topic hiányzik");
 } else ok("bigscreen/index.html: MQTT topics");
@@ -284,6 +296,10 @@ const smallscreenHtml = fs.readFileSync(path.join(root, "smallscreen", "index.ht
 if (!smallscreenHtml.includes("mqtt.min.js") || !smallscreenHtml.includes("smallscreen/layer")) {
   fail("smallscreen/index.html: MQTT kiosk hiányzik");
 } else ok("smallscreen/index.html: MQTT kiosk");
+
+if (!smallscreenHtml.includes("/shared/js/mqtt-client.js") || !smallscreenHtml.includes("NanoportalMqtt")) {
+  fail("smallscreen/index.html: közös mqtt-client hiányzik");
+} else ok("smallscreen/index.html: mqtt-client.js");
 
 if (
   !smallscreenHtml.includes("smallscreen/quiz") ||
@@ -305,6 +321,45 @@ for (const removed of ["smallscreen/smallscreen.js", "smallscreen/smallscreen.cs
     fail(`eltávolítandó fájl még létezik: ${removed}`);
   } else ok(`törölve: ${removed}`);
 }
+
+const adminHtml = fs.readFileSync(path.join(root, "admin", "index.html"), "utf8");
+if (!adminHtml.includes("mqtt.min.js") || !adminHtml.includes("session/control")) {
+  fail("admin/index.html: MQTT operátor panel hiányzik");
+} else ok("admin/index.html: MQTT operátor panel");
+
+if (
+  !adminHtml.includes("session/group_contact") ||
+  !adminHtml.includes("bigscreen/layer") ||
+  !adminHtml.includes("smallscreen/layer") ||
+  !adminHtml.includes("bigscreen/players")
+) {
+  fail("admin/index.html: MQTT topicok hiányoznak");
+} else ok("admin/index.html: MQTT topics");
+
+if (!adminHtml.includes("facingMode") || !adminHtml.includes("environment")) {
+  fail("admin/index.html: environment kamera constraints hiányoznak");
+} else ok("admin/index.html: environment camera");
+
+if (!adminHtml.includes("min-height: 56px")) {
+  fail("admin/index.html: érintés cél min-height 56px hiányzik");
+} else ok("admin/index.html: touch targets");
+
+if (adminHtml.includes("admin.js") || adminHtml.includes("admin.css")) {
+  fail("admin/index.html: nem lehet legacy admin.js/css hivatkozás");
+} else ok("admin/index.html: self-contained");
+
+if (!adminHtml.includes("/shared/js/mqtt-client.js") || !adminHtml.includes("smallscreen/quiz/result")) {
+  fail("admin/index.html: mqtt-client vagy quiz/result feliratkozás hiányzik");
+} else ok("admin/index.html: mqtt-client + quiz result");
+
+const mqttClientJs = fs.readFileSync(path.join(root, "shared", "js", "mqtt-client.js"), "utf8");
+if (!mqttClientJs.includes("NanoportalMqtt") || !mqttClientJs.includes("RETAIN_TOPICS")) {
+  fail("mqtt-client.js: NanoportalMqtt vagy RETAIN_TOPICS hiányzik");
+} else ok("mqtt-client.js: NanoportalMqtt export");
+
+if (!mqttClientJs.includes("retain") || !mqttClientJs.includes("session/control")) {
+  fail("mqtt-client.js: retain publish vagy session/control hiányzik");
+} else ok("mqtt-client.js: retain policy");
 
 const flowJson = fs.readFileSync(path.join(root, "hardware", "node-red", "mqtt-to-state.flow.json"), "utf8");
 if (!flowJson.includes("mobilmozi/#") || !flowJson.includes("raw.screens")) {

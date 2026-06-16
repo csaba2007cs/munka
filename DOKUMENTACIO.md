@@ -213,108 +213,44 @@ Részletes összefoglaló: [docs/node-red-example.md](docs/node-red-example.md).
 
 ## 6. Felületek röviden
 
+### 6.0 MQTT közös beállítás
+
+Az **admin**, **bigscreen** és **smallscreen** oldalak Mosquitto WebSocketen (`ws://<host>:9001`) kommunikálnak a közös [`shared/js/mqtt-client.js`](shared/js/mqtt-client.js) modullal.
+
+- Teljes topic térkép, retain szabályok, Mosquitto példa: **[docs/mqtt-setup.md](docs/mqtt-setup.md)**
+- Példa konfig: [`hardware/mosquitto/mosquitto.conf.example`](hardware/mosquitto/mosquitto.conf.example)
+- Broker felülírás: `?broker=ws://…`
+
 ### 6.1 Quiz (`/quiz/`)
 
 - A `quiz_state` és `status` alapján rajzol: fejléc, lépésjelző, kérdés, gombok, visszajelző, jobb oldali sáv, HUD hullám + szkennelés.
 - Helytelen válasz: vizuális visszajelzés; helyes után `TOVÁBB` engedélyezve `RUNNING` mellett.
 - A választógombok DOM-ja csak akkor épül újra, ha az állapot **aláírása** változik (kevesebb villanás, jobb érintés).
 
-### 6.2 Admin (`/admin/`) — operátori felület
+### 6.2 Admin (`/admin/`) — MQTT operátor panel
 
-- **Fejléc:** nagy **állapot sáv** (magyar: Várakozás / Élmény fut / Szünet / Lezárva), lépés és névsor jelzés; fülek: **Irányítás** | **Photobooth** | **Látogatók** | **Képernyők** | **Hardver** (`role="tablist"`).
-- **Élmény vezérlése:** Indítás, Szünet, Folytatás — gombok állapot szerint tiltva (pl. Folytatás csak szünetnél). Indítás előtt névsor megerősítés (vagy megerősítő párbeszéd).
-- **Névsor:** soronként egy név → `players` mentés; **Névsor rendben** → `players_confirmed: true`.
-- **Tablet regisztrációk:** `pending_registrations` lista; **Összes névsorba** / **Várólista törlése** (megerősítéssel).
-- **Hangok:** `GET` / `POST` `audio.php`.
-- **Haladó** (összecsukható): kamera URL (`display.camera_feed_url`), ElevenLabs helyőrző.
-- **Veszélyes műveletek** (külön blokk, megerősítéssel): Megszakítás → `IDLE`, Lezárás → `COMPLETED`, Teljes reset → `POST { "_full_reset": true }`.
-- **Visszajelzés:** alsó **toast** siker/hiba (nem `alert()`); kritikus műveletek `confirm()`.
-- **Photobooth:** 1. Kamera → 2. Ellenőrzés (előnézet) → 3. Feltöltés; lista: `GET /api/photobooth-list.php`.
-- **Hardver:** kapcsolat jelzés (aktív, ha 2 percen belül volt esemény), utolsó esemény, zóna LED badge-ek, görgethető eseménynapló, teszt gombok (mozgás / ajtó / LED), napló törlése.
-- **Stílus:** [`admin/admin.css`](admin/admin.css) operátori mód (Rajdhani, nagy érintési célok) — lásd [docs/design-tokens.md](docs/design-tokens.md).
+Egyetlen önálló HTML: [`admin/index.html`](admin/index.html) — Galaxy Tab érintővezérlés, **MQTT.js** + [`shared/js/mqtt-client.js`](shared/js/mqtt-client.js). A régi többfüles UI ([`admin/admin.js`](admin/admin.js)) **legacy**.
+
+- MQTT státusz a fejlécben; utolsó kvíz eredmény: `smallscreen/quiz/result`
+- Topicok és retain: [docs/mqtt-setup.md](docs/mqtt-setup.md)
+
+**Legacy operátor** (state.php): [`admin/admin.js`](admin/admin.js) referenciának maradt.
 
 ### 6.3 Bigscreen (`/bigscreen/`) — MQTT kiosk
 
-Egyetlen önálló HTML: [`bigscreen/index.html`](bigscreen/index.html) — inline CSS/JS, **MQTT.js** CDN, **nincs** `state.php` poll. Firefox kiosk (60"), érintés nélkül (`pointer-events: none`).
+Egyetlen önálló HTML: [`bigscreen/index.html`](bigscreen/index.html) — inline CSS/JS, **MQTT.js** + **mqtt-client.js**, nincs `state.php` poll. Firefox kiosk (60"), érintés nélkül.
 
-**Broker:** alapértelmezés `ws://<ugyanaz-a-host>:9001` (Mosquitto WebSocket). Teszt: `?broker=ws://192.168.x.x:9001`.
-
-**Mosquitto** (példa):
-
-```
-listener 1883
-listener 9001
-protocol websockets
-```
-
-Nyisd meg a tűzfalon a **9001**-et a kiosk alhálózat felől.
-
-| Topic | Payload | Hatás |
-|-------|---------|--------|
-| `bigscreen/layer` | `photo` \| `video` \| `celebration` | Aktív réteg (`z-index: 999`) |
-| `bigscreen/photo` | URL vagy base64 | Üdvözlő fotó (`object-fit: cover`) |
-| `bigscreen/video` | URL vagy fájlnév | Videó forrás (`/shared/assets/video/` ha csak név) |
-| `bigscreen/video/play` | (üres) | Lejátszás |
-| `bigscreen/video/pause` | (üres) | Szünet |
-| `bigscreen/video/reset` | (üres) | Stop + elejére |
-| `bigscreen/players` | JSON tömb `[{"photo":"…","name":"…"}, …]` | 2–6 játékos, 9 s carousel |
-| `bigscreen/celebration/background` | `crowd_europe` \| `crowd_nyc` | Tömeg háttér (opcionális) |
-| `bigscreen/celebration/cheer` | URL vagy hangfájl | Ünneplő loop (opcionális) |
-
-Példa (Mosquitto CLI):
-
-```bash
-mosquitto_pub -h 127.0.0.1 -t bigscreen/photo -m "/data/photobooth_20260101_120000_abcd.jpg"
-mosquitto_pub -h 127.0.0.1 -t bigscreen/layer -m photo
-mosquitto_pub -h 127.0.0.1 -t bigscreen/video -m "/shared/assets/video/intro.mp4"
-mosquitto_pub -h 127.0.0.1 -t bigscreen/layer -m video
-mosquitto_pub -h 127.0.0.1 -t bigscreen/players -m '[{"photo":"/data/visitor_....jpg","name":"ANNA"},{"photo":"/data/visitor_....jpg","name":"BÉLA"}]'
-mosquitto_pub -h 127.0.0.1 -t bigscreen/layer -m celebration
-```
-
-Az admin **Képernyők** fül `screens.big` patch-e **nem** vezérli a nagy TV-t — MQTT publish szükséges (Node-RED, CLI, vagy későbbi bridge).
+- Topicok: [docs/mqtt-setup.md](docs/mqtt-setup.md) (`bigscreen/*`)
+- Retained üzenetek → késői betöltésnél is aktuális réteg/média
 
 ### 6.4 Smallscreen (`/smallscreen/`) — MQTT kiosk
 
-Egyetlen önálló HTML: [`smallscreen/index.html`](smallscreen/index.html) — inline CSS/JS, **MQTT.js** CDN, **nincs** `state.php` poll. Firefox kiosk (21" érintőképernyő): **photo** és **video** rétegen érintés tiltva; **quiz** rétegen interaktív válaszgombok.
+Egyetlen önálló HTML: [`smallscreen/index.html`](smallscreen/index.html) — **MQTT.js** + **mqtt-client.js**. Érintés: photo/video zárolva, quiz interaktív.
 
-**Broker:** ugyanaz, mint a nagy kijelzőn — `ws://<ugyanaz-a-host>:9001` (lásd §6.3). Teszt: `?broker=ws://192.168.x.x:9001`.
+- Topicok: [docs/mqtt-setup.md](docs/mqtt-setup.md) (`smallscreen/*`)
+- Befejezéskor publish: `smallscreen/quiz/result` → admin megjeleníti
 
-| Topic | Payload | Hatás |
-|-------|---------|--------|
-| `smallscreen/layer` | `photo` \| `video` \| `quiz` | Aktív réteg (`z-index: 999`) |
-| `smallscreen/photo` | URL vagy base64 | Statikus kép (`object-fit: cover`) |
-| `smallscreen/video` | URL vagy fájlnév | Videó forrás; lejátszás réteg aktiváláskor |
-| `smallscreen/quiz` | JSON kérdésbank | Lásd alább |
-| `smallscreen/quiz/result` | *(publish)* `{"score":3,"total":4}` | A kiosk küldi, ha a felhasználó befejezi a kvízt |
-
-**Kvíz JSON** (`smallscreen/quiz`):
-
-```json
-[
-  {
-    "question": "Melyik a helyes?",
-    "answers": [
-      { "text": "A válasz", "correct": true },
-      { "text": "B válasz", "correct": false }
-    ]
-  }
-]
-```
-
-Minimum 1 kérdés, kérdésenként legalább 2 válasz. A kiválasztott válasz `correct` mezője határozza meg a pontot. Helytelen válasznál a helyes opció zölddel kiemelődik; 1,5 s után következő kérdés vagy eredményképernyő.
-
-Példa (Mosquitto CLI):
-
-```bash
-mosquitto_pub -h 127.0.0.1 -t smallscreen/quiz -m '[{"question":"Melyik a helyes?","answers":[{"text":"A","correct":true},{"text":"B","correct":false}]}]'
-mosquitto_pub -h 127.0.0.1 -t smallscreen/photo -m "/shared/assets/images/small-idle.svg"
-mosquitto_pub -h 127.0.0.1 -t smallscreen/layer -m quiz
-mosquitto_pub -h 127.0.0.1 -t smallscreen/video -m "/shared/assets/video/intro.mp4"
-mosquitto_pub -h 127.0.0.1 -t smallscreen/layer -m video
-```
-
-Az admin **Képernyők** fül `screens.small` patch-e **nem** vezérli az érintő kioskot — MQTT publish szükséges. A régi önálló [`/quiz/`](quiz/) oldal és [`shared/js/quiz-panel.js`](shared/js/quiz-panel.js) továbbra is a `state.php` alapú kvízhez készült.
+A régi [`/quiz/`](quiz/) és [`shared/js/quiz-panel.js`](shared/js/quiz-panel.js) továbbra is `state.php` alapú.
 
 ### 6.5 Display (`/display/`)
 
@@ -335,8 +271,7 @@ Az admin **Képernyők** fül `screens.small` patch-e **nem** vezérli az érint
 3. A **`shared/assets/audio/`** és **`video/`** mappákba tegyél tényleges médiafájlokat; a `state.json`-ban szereplő fájlneveknek egyezniük kell.
 4. Győződj meg róla, hogy a webszerver **kiszolgálja** a `/data/` alatti képeket is (ha publikus URL kell a feltöltött fotóhoz).
 5. **Tablet photobooth (HTTPS):** a gyökérben lévő [`.htaccess`](.htaccess) engedélyezi a kamerát (`Permissions-Policy: camera=(self)`). Szükséges: `sudo a2enmod headers` és `AllowOverride` a vhostban. A tableten az admin URL legyen **HTTPS** (pl. `https://nanoportal.local/admin/`).
-6. **Nagy kijelző MQTT:** Mosquitto WebSocket a **9001**-en; részletek: §6.3.
-7. **Érintő kiosk MQTT:** ugyanaz a broker; részletek: §6.4.
+6. **MQTT (admin + kiosks):** Mosquitto WebSocket **9001** — [docs/mqtt-setup.md](docs/mqtt-setup.md), §6.0.
 
 ---
 
