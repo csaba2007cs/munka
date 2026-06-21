@@ -179,17 +179,27 @@ if (!quizPanelJs.includes("export function initQuizPanel")) {
 } else ok("quiz-panel.js: initQuizPanel");
 
 const statePhp = fs.readFileSync(path.join(root, "api", "state.php"), "utf8");
-if (!statePhp.includes("apply_quiz_answer_lock")) {
-  fail("api/state.php: apply_quiz_answer_lock hiányzik");
+const stateLibPhp = fs.readFileSync(path.join(root, "api", "state_lib.php"), "utf8");
+if (!stateLibPhp.includes("apply_quiz_answer_lock")) {
+  fail("api/state_lib.php: apply_quiz_answer_lock hiányzik");
 } else ok("api/state.php: válasz-zárolás merge után");
 
-if (!statePhp.includes("default_hardware") || !statePhp.includes("apply_hardware_event_log")) {
-  fail("api/state.php: hardware napló logika hiányzik");
+if (!stateLibPhp.includes("default_hardware") || !stateLibPhp.includes("apply_hardware_event_log")) {
+  fail("api/state_lib.php: hardware napló logika hiányzik");
 } else ok("api/state.php: hardware default + event_log append");
 
-if (!statePhp.includes("default_screens") || !statePhp.includes("ensure_mobilmozi_defaults")) {
-  fail("api/state.php: Mobilmozi v2 screens séma hiányzik");
+if (!stateLibPhp.includes("default_screens") || !stateLibPhp.includes("ensure_mobilmozi_defaults")) {
+  fail("api/state_lib.php: Mobilmozi v2 screens séma hiányzik");
 } else ok("api/state.php: screens + visitors default");
+
+if (!statePhp.includes("state_lib.php")) {
+  fail("api/state.php: state_lib.php require hiányzik");
+}
+
+const stateLib = stateLibPhp;
+if (!stateLib.includes("modify_state_locked") || !stateLib.includes("flock")) {
+  fail("api/state_lib.php: flock read-modify-write hiányzik");
+} else ok("api/state_lib.php: flock read-modify-write");
 
 const devServer = fs.readFileSync(path.join(root, "scripts", "dev-server.mjs"), "utf8");
 if (!devServer.includes("applyQuizAnswerLock")) {
@@ -204,6 +214,10 @@ if (!devServer.includes("defaultScreensInline") || !devServer.includes("ensureMo
   fail("scripts/dev-server.mjs: Mobilmozi v2 screens séma hiányzik");
 } else ok("dev-server.mjs: screens tükör");
 
+if (!devServer.includes("withStateLock") || !devServer.includes("modifyState")) {
+  fail("scripts/dev-server.mjs: state lock hiányzik");
+} else ok("dev-server.mjs: state lock tükör");
+
 if (!fs.existsSync(path.join(root, "docs", "roadmap-blaci.md"))) {
   fail("hiányzó fájl: docs/roadmap-blaci.md");
 } else ok("létezik: docs/roadmap-blaci.md");
@@ -216,6 +230,11 @@ const extraPaths = [
   "shared/css/components.css",
   "shared/js/camera-capture.js",
   "shared/js/mqtt-client.js",
+  "shared/js/admin-upload.js",
+  "shared/js/admin-registrations.js",
+  "shared/js/admin-photobooth.js",
+  "shared/js/admin-hardware.js",
+  "api/state_lib.php",
   "shared/celebration-templates.json",
   "shared/assets/celebration/crowd-europe.png",
   "shared/assets/celebration/crowd-nyc.png",
@@ -365,6 +384,10 @@ const flowJson = fs.readFileSync(path.join(root, "hardware", "node-red", "mqtt-t
 if (!flowJson.includes("mobilmozi/#") || !flowJson.includes("raw.screens")) {
   fail("mqtt-to-state.flow.json: mobilmozi topic vagy screens patch hiányzik");
 } else ok("Node-RED flow: mobilmozi + screens");
+
+if (!flowJson.includes("session/control") || !flowJson.includes("fn_session_control")) {
+  fail("mqtt-to-state.flow.json: session/control → state.php hiányzik");
+} else ok("Node-RED flow: session/control bridge");
 
 if (failed) {
   process.exit(1);

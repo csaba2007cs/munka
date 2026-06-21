@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/state_lib.php';
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
@@ -24,33 +26,8 @@ function list_audio_files(string $dir): array
         }
     }
     sort($files);
+
     return $files;
-}
-
-function load_state(string $path): array
-{
-    if (!is_readable($path)) {
-        return [];
-    }
-    $raw = file_get_contents($path);
-    if ($raw === false) {
-        return [];
-    }
-    $decoded = json_decode($raw, true);
-    return is_array($decoded) ? $decoded : [];
-}
-
-function save_state(string $path, array $state): bool
-{
-    $json = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-    if ($json === false) {
-        return false;
-    }
-    $tmp = $path . '.tmp';
-    if (file_put_contents($tmp, $json, LOCK_EX) === false) {
-        return false;
-    }
-    return rename($tmp, $path);
 }
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -58,7 +35,7 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if ($method === 'GET') {
     $baseUrl = '/shared/assets/audio/';
     $clips = list_audio_files($audioDir);
-    $mapped = array_map(static fn(string $f): array => [
+    $mapped = array_map(static fn (string $f): array => [
         'file' => $f,
         'url' => $baseUrl . rawurlencode($f),
     ], $clips);
@@ -87,22 +64,26 @@ if ($method === 'POST') {
         exit;
     }
 
-    $state = load_state($stateFile);
-    if (!isset($state['audio']) || !is_array($state['audio'])) {
-        $state['audio'] = [];
-    }
-    $state['audio']['last_triggered'] = [
+    $trigger = [
         'clip' => $clip,
         'url' => '/shared/assets/audio/' . rawurlencode($clip),
         'at' => gmdate('c'),
     ];
-    if (!isset($state['audio']['queue']) || !is_array($state['audio']['queue'])) {
-        $state['audio']['queue'] = [];
-    }
-    $state['audio']['queue'][] = $state['audio']['last_triggered'];
-    $state['updated_at'] = gmdate('c');
 
-    if (!save_state($stateFile, $state)) {
+    $state = modify_state_locked($stateFile, static function (array $state) use ($trigger): array {
+        if (!isset($state['audio']) || !is_array($state['audio'])) {
+            $state['audio'] = [];
+        }
+        $state['audio']['last_triggered'] = $trigger;
+        if (!isset($state['audio']['queue']) || !is_array($state['audio']['queue'])) {
+            $state['audio']['queue'] = [];
+        }
+        $state['audio']['queue'][] = $trigger;
+
+        return $state;
+    });
+
+    if ($state === null) {
         http_response_code(500);
         echo json_encode(['error' => 'Persist failed'], JSON_UNESCAPED_UNICODE);
         exit;
@@ -110,7 +91,7 @@ if ($method === 'POST') {
 
     echo json_encode([
         'ok' => true,
-        'playUrl' => $state['audio']['last_triggered']['url'],
+        'playUrl' => $trigger['url'],
         'state' => $state,
     ], JSON_UNESCAPED_UNICODE);
     exit;

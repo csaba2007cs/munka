@@ -253,6 +253,7 @@
 
 .choice-btn {
   --choice-pad: 16px;
+  min-height: 48px;
   display: flex;
   align-items: center;
   gap: 16px;

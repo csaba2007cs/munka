@@ -412,8 +412,90 @@
         opacity: 0;
         pointer-events: none;
       }
+
+      .pending-list {
+        margin: 0.5rem 0 0;
+        padding-left: 1.25rem;
+      }
+
+      .photobooth-wrap .pb-live,
+      .photobooth-wrap .pb-preview {
+        width: 100%;
+        max-height: 240px;
+        object-fit: cover;
+        border-radius: 8px;
+        background: #000;
+      }
+
+      .pb-gallery {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+      }
+
+      .pb-thumb {
+        width: 72px;
+        height: 72px;
+        object-fit: cover;
+        border-radius: 6px;
+      }
+
+      .hardware-status {
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .hardware-status--active {
+        color: #39ff14;
+      }
+
+      .hardware-status--idle {
+        color: #888;
+      }
+
+      .hardware-zone-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .hardware-led-badge {
+        font-size: 0.75rem;
+        padding: 0.15rem 0.5rem;
+        border-radius: 4px;
+      }
+
+      .hardware-led-badge.is-on {
+        background: rgba(57, 255, 20, 0.2);
+        color: #39ff14;
+      }
+
+      .hardware-led-badge.is-off {
+        background: rgba(255, 80, 80, 0.15);
+        color: #ff8888;
+      }
+
+      .hardware-log-meta {
+        display: block;
+        font-size: 0.75rem;
+        opacity: 0.7;
+      }
+
+      #hardware-event-log {
+        list-style: none;
+        padding: 0;
+        margin: 0.5rem 0 0;
+        max-height: 160px;
+        overflow-y: auto;
+      }
     </style>
     <script src="https://unpkg.com/mqtt@5.10.4/dist/mqtt.min.js"></script>
+    <script src="/shared/js/admin-upload.js"></script>
+    <script src="/shared/js/admin-registrations.js"></script>
+    <script src="/shared/js/admin-hardware.js"></script>
     <script src="/shared/js/mqtt-client.js"></script>
   </head>
   <body>
@@ -432,6 +514,17 @@
           <button type="button" class="btn-start" id="btn-session-start" disabled>START</button>
           <button type="button" class="btn-pause" id="btn-session-pause" disabled>PAUSE</button>
           <button type="button" class="btn-reset" id="btn-session-reset" disabled>RESET</button>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="sec-pending">
+        <h2 class="section-title" id="sec-pending">Regisztráció várólista</h2>
+        <p class="section-lead">A /register/ oldalról érkező nevek — importálás a névsorba.</p>
+        <div id="pending-list"></div>
+        <div class="action-row" style="margin-top: 0.75rem">
+          <button type="button" class="btn-primary" id="btn-pending-import">Import a névsorba</button>
+          <button type="button" class="btn-ghost" id="btn-players-confirmed">Névsor rendben</button>
+          <button type="button" class="btn-ghost" id="btn-pending-clear">Várólista törlése</button>
         </div>
       </section>
 
@@ -465,6 +558,22 @@
         </div>
       </section>
 
+      <section class="panel" aria-labelledby="sec-hardware">
+        <h2 class="section-title" id="sec-hardware">Hardver</h2>
+        <p id="hardware-connection" class="hardware-status hardware-status--idle">—</p>
+        <p class="section-lead">
+          Utolsó esemény: <span id="hardware-last-device">—</span> ·
+          <span id="hardware-last-type">—</span> ·
+          <span id="hardware-last-at">—</span>
+        </p>
+        <div id="hardware-zones"></div>
+        <ul id="hardware-event-log"></ul>
+        <div class="action-row" style="margin-top: 0.75rem">
+          <button type="button" class="btn-ghost" id="btn-hw-test-motion">Teszt motion</button>
+          <button type="button" class="btn-ghost" id="btn-hw-clear-log">Napló törlése</button>
+        </div>
+      </section>
+
       <section class="panel" aria-labelledby="sec-ipcam">
         <h2 class="section-title" id="sec-ipcam">IP kamera</h2>
         <p class="section-lead">MJPEG vagy HLS (.m3u8) stream előnézet.</p>
@@ -472,6 +581,7 @@
         <input type="url" id="ip-cam-url" autocomplete="off" spellcheck="false" />
         <div class="action-row" style="margin-top: 0.5rem">
           <button type="button" class="btn-ghost" id="btn-ip-cam-apply">Alkalmaz</button>
+          <button type="button" class="btn-primary" id="btn-ip-cam-send-tv" disabled>Küldés nagy TV-re</button>
         </div>
         <div class="ip-cam-wrap" id="ip-cam-wrap">
           <img id="ip-cam-mjpeg" alt="" hidden />
@@ -479,6 +589,12 @@
           <p class="ip-cam-placeholder" id="ip-cam-placeholder">Nincs stream</p>
         </div>
         <p class="field-error" id="ip-cam-error" hidden></p>
+      </section>
+
+      <section class="panel" aria-labelledby="sec-photobooth">
+        <h2 class="section-title" id="sec-photobooth">Photobooth</h2>
+        <p class="section-lead">Előfotózás — feltöltés a /data/ mappába.</p>
+        <div id="photobooth-mount"></div>
       </section>
 
       <section class="panel" aria-labelledby="sec-contact">
@@ -636,7 +752,7 @@
 
         function updatePublishButtons() {
           const disabled = !mqttConnected;
-          document.querySelectorAll("button[data-publish-layer], #btn-session-start, #btn-session-pause, #btn-session-reset, #btn-send-screens, #btn-send-welcome").forEach(function (btn) {
+          document.querySelectorAll("button[data-publish-layer], #btn-session-start, #btn-session-pause, #btn-session-reset, #btn-send-screens, #btn-send-welcome, #btn-ip-cam-send-tv").forEach(function (btn) {
             btn.disabled = disabled;
           });
         }
@@ -1154,13 +1270,22 @@
           }
         }
 
-        function buildPlayersPayload() {
+        async function buildPlayersPayload() {
+          const upload = window.NanoportalAdminUpload;
+          if (!upload) {
+            return { ok: false, error: "admin-upload.js hiányzik" };
+          }
           const out = [];
           for (let i = 0; i < visitors.length; i++) {
             const nick = String(visitors[i].nickname || "").trim();
-            const photo = String(visitors[i].photo || "").trim();
+            let photo = String(visitors[i].photo || "").trim();
             if (!nick || !photo) {
               return { ok: false, error: "Minden látogatónak kell becenév és fotó (legalább " + CONFIG.minVisitors + " fő)." };
+            }
+            try {
+              photo = await upload.uploadDataUrlIfNeeded(photo, "visitor");
+            } catch (e) {
+              return { ok: false, error: String(e.message || e) };
             }
             out.push({ photo: photo, name: nick.toUpperCase() });
           }
@@ -1290,7 +1415,7 @@
         });
 
         document.getElementById("btn-send-screens").addEventListener("click", async function () {
-          const players = buildPlayersPayload();
+          const players = await buildPlayersPayload();
           if (!players.ok) {
             showToast(players.error, false);
             return;
@@ -1312,28 +1437,57 @@
           try {
             await publish("bigscreen/players", JSON.stringify(players.data));
             await publish("session/group_contact", JSON.stringify(contact));
-            if (quizRaw) await publish("smallscreen/quiz", quizRaw);
-            showToast("Adatok elküldve", true);
+            if (quizRaw) {
+              await publish("smallscreen/quiz", quizRaw);
+              await publish("smallscreen/layer", "quiz");
+            }
+            await publish("bigscreen/layer", "celebration");
+            showToast("Adatok és rétegek elküldve", true);
           } catch (e) {
             showToast(String(e.message || e), false);
           }
         });
 
-        document.getElementById("btn-send-welcome").addEventListener("click", function () {
+        document.getElementById("btn-send-welcome").addEventListener("click", async function () {
           if (!welcomePhotoDataUrl) {
             showToast("Előbb készíts üdvözlő fotót.", false);
             return;
           }
-          Promise.all([
-            publish("bigscreen/photo", welcomePhotoDataUrl),
-            publish("smallscreen/photo", welcomePhotoDataUrl),
-          ])
-            .then(function () {
-              showToast("Üdvözlő fotó elküldve", true);
-            })
-            .catch(function (e) {
-              showToast(String(e.message || e), false);
+          const upload = window.NanoportalAdminUpload;
+          if (!upload) {
+            showToast("admin-upload.js hiányzik", false);
+            return;
+          }
+          try {
+            const path = await upload.uploadDataUrl(welcomePhotoDataUrl, "window");
+            await publish("bigscreen/photo", path);
+            await publish("smallscreen/photo", path);
+            await publish("bigscreen/layer", "photo");
+            await publish("smallscreen/layer", "photo");
+            showToast("Üdvözlő fotó elküldve", true);
+          } catch (e) {
+            showToast(String(e.message || e), false);
+          }
+        });
+
+        document.getElementById("btn-ip-cam-send-tv").addEventListener("click", async function () {
+          const url = String(ipCamUrlEl.value || "").trim();
+          if (!url) {
+            showToast("Add meg a stream URL-t.", false);
+            return;
+          }
+          try {
+            await fetch("/api/state.php", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ display: { camera_feed_url: url } }),
             });
+            await publish("bigscreen/video", url);
+            await publish("bigscreen/layer", "video");
+            showToast("IP kamera elküldve a nagy TV-re.", true);
+          } catch (e) {
+            showToast(String(e.message || e), false);
+          }
         });
 
         quizJsonEl.value = CONFIG.quizJsonDefault;
@@ -1344,6 +1498,36 @@
         initVisitors();
         applyIpCamera(ipCamUrlEl.value);
         updatePublishButtons();
+
+        if (window.NanoportalAdminRegistrations) {
+          window.NanoportalAdminRegistrations.init({
+            listEl: document.getElementById("pending-list"),
+            importBtn: document.getElementById("btn-pending-import"),
+            confirmBtn: document.getElementById("btn-players-confirmed"),
+            clearBtn: document.getElementById("btn-pending-clear"),
+            onToast: showToast,
+          });
+        }
+
+        if (window.NanoportalAdminHardware) {
+          window.NanoportalAdminHardware.init({
+            els: {
+              conn: document.getElementById("hardware-connection"),
+              dev: document.getElementById("hardware-last-device"),
+              type: document.getElementById("hardware-last-type"),
+              at: document.getElementById("hardware-last-at"),
+              zones: document.getElementById("hardware-zones"),
+              log: document.getElementById("hardware-event-log"),
+            },
+            testMotionBtn: document.getElementById("btn-hw-test-motion"),
+            clearLogBtn: document.getElementById("btn-hw-clear-log"),
+            onToast: showToast,
+          });
+        }
+
+        void import("/shared/js/admin-photobooth.js").then(function (mod) {
+          mod.mountPhotobooth(document.getElementById("photobooth-mount"), { onToast: showToast });
+        });
 
         if (!Mqtt) {
           setMqttStatus("is-error", "mqtt-client.js hiányzik");

@@ -1,3 +1,4 @@
+// Superseded by admin/index.html + shared/js/admin-*.js modules (MQTT operátor UI).
 import { createStateSync, formatStateTimestamp } from "/shared/js/state-sync.js";
 import {
   applyInsecureCameraUx,

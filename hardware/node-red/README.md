@@ -30,13 +30,23 @@ mosquitto_pub -h 127.0.0.1 -t smallscreen/photo -m "/shared/assets/images/small-
 mosquitto_pub -h 127.0.0.1 -t smallscreen/layer -m photo
 ```
 
-**Operátor tablet** (`/admin/`) — MQTT publish, nem `state.php` (§6.2):
+**Operátor tablet** (`/admin/`) — MQTT publish; a `session/control` üzeneteket a Node-RED flow továbbítja `state.php`-ba (§6.2):
 
 ```bash
 mosquitto_pub -h 127.0.0.1 -t session/control -m start
 mosquitto_pub -h 127.0.0.1 -t session/group_contact -m '{"emails":["csoport@pelda.hu"],"phones":["+36123456789"]}'
 mosquitto_pub -h 127.0.0.1 -t bigscreen/layer -m celebration
 ```
+
+`session/control` → `state.php` (Node-RED `fn_session_control`):
+
+| Payload | state.php patch |
+|---------|-----------------|
+| `start` | `{ "status": "RUNNING" }` |
+| `pause` | `{ "status": "PAUSED" }` |
+| `reset` | `{ "status": "IDLE", "current_step": 1, quiz_state reset }` |
+
+Ellenőrzés: `mosquitto_pub … session/control start` után `GET /api/state.php` → `RUNNING`; a `/quiz/` oldal fogad válaszokat.
 
 A kvíz befejezésekor a kiosk `smallscreen/quiz/result` topicra küldi az eredményt (`{"score":…,"total":…}`).
 

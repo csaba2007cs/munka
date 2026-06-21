@@ -8,6 +8,17 @@ function asObject(v) {
   return typeof v === "object" && v !== null ? v : {};
 }
 
+function playWithSurface(el, label) {
+  if (!el || typeof el.play !== "function") return;
+  const p = el.play();
+  if (p && typeof p.catch === "function") {
+    p.catch((err) => {
+      const syncEl = $("display-sync");
+      if (syncEl) syncEl.textContent = `${label} // ${String(err?.message ?? err)}`;
+    });
+  }
+}
+
 function render(state) {
   const display = asObject(state.display);
   const bgVideo = String(display.background_video ?? "");
@@ -22,7 +33,7 @@ function render(state) {
         v.setAttribute("data-src", next);
         v.src = next;
         v.poster = "/shared/assets/images/poster_placeholder.svg";
-        void v.play();
+        playWithSurface(v, "VIDEO");
       }
     } else {
       v.removeAttribute("data-src");
@@ -39,7 +50,7 @@ function render(state) {
         a.setAttribute("data-src", next);
         a.src = next;
         a.loop = true;
-        void a.play();
+        playWithSurface(a, "AUDIO");
       }
     } else {
       a.removeAttribute("data-src");
@@ -53,7 +64,7 @@ function render(state) {
       cam.setAttribute("data-src", camUrl);
       cam.srcObject = null;
       cam.src = camUrl;
-      cam.play().catch(() => {});
+      playWithSurface(cam, "CAM");
     }
     if (!camUrl) {
       cam.removeAttribute("src");
@@ -69,7 +80,10 @@ function render(state) {
     const url = typeof triggered.url === "string" ? triggered.url : "";
     if (url) {
       const oneShot = new Audio(url);
-      void oneShot.play();
+      oneShot.play().catch((err) => {
+        const syncEl = $("display-sync");
+        if (syncEl) syncEl.textContent = `SFX // ${String(err?.message ?? err)}`;
+      });
     }
   }
 

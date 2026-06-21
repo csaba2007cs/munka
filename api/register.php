@@ -1,11 +1,22 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/state_lib.php';
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
 $root = dirname(__DIR__);
-$stateFile = $root . DIRECTORY_SEPARATOR . 'data' . DIRECTORY_SEPARATOR . 'state.json';
+$dataDir = $root . DIRECTORY_SEPARATOR . 'data';
+$stateFile = $dataDir . DIRECTORY_SEPARATOR . 'state.json';
+
+if (!is_dir($dataDir)) {
+    if (!mkdir($dataDir, 0755, true) && !is_dir($dataDir)) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Cannot create data directory'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
 
 function utf8_len(string $s): int
 {
@@ -14,33 +25,6 @@ function utf8_len(string $s): int
     }
 
     return strlen($s);
-}
-
-function load_state(string $path): array
-{
-    if (!is_readable($path)) {
-        return [];
-    }
-    $raw = file_get_contents($path);
-    if ($raw === false || $raw === '') {
-        return [];
-    }
-    $decoded = json_decode($raw, true);
-    return is_array($decoded) ? $decoded : [];
-}
-
-function save_state(string $path, array $state): bool
-{
-    $state['updated_at'] = gmdate('c');
-    $json = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-    if ($json === false) {
-        return false;
-    }
-    $tmp = $path . '.tmp';
-    if (file_put_contents($tmp, $json, LOCK_EX) === false) {
-        return false;
-    }
-    return rename($tmp, $path);
 }
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -75,37 +59,38 @@ if ($method === 'POST') {
         exit;
     }
 
-    $state = load_state($stateFile);
-    if ($state === [] || !isset($state['status'])) {
-        http_response_code(500);
-        echo json_encode(['error' => 'State file unavailable — check data/state.json'], JSON_UNESCAPED_UNICODE);
-        exit;
-    }
-    if (!isset($state['pending_registrations']) || !is_array($state['pending_registrations'])) {
-        $state['pending_registrations'] = [];
-    }
-
-    $maxId = 0;
-    foreach ($state['pending_registrations'] as $row) {
-        if (is_array($row) && isset($row['id'])) {
-            $maxId = max($maxId, (int) $row['id']);
+    $row = null;
+    $state = modify_state_locked($stateFile, static function (array $state) use ($name, &$row): array {
+        if (!isset($state['pending_registrations']) || !is_array($state['pending_registrations'])) {
+            $state['pending_registrations'] = [];
         }
-    }
+        $maxId = 0;
+        foreach ($state['pending_registrations'] as $existing) {
+            if (is_array($existing) && isset($existing['id'])) {
+                $maxId = max($maxId, (int) $existing['id']);
+            }
+        }
+        $row = [
+            'id' => $maxId + 1,
+            'name' => $name,
+            'at' => gmdate('c'),
+        ];
+        $state['pending_registrations'][] = $row;
 
-    $row = [
-        'id' => $maxId + 1,
-        'name' => $name,
-        'at' => gmdate('c'),
-    ];
-    $state['pending_registrations'][] = $row;
+        return $state;
+    });
 
-    if (!save_state($stateFile, $state)) {
+    if ($state === null || $row === null) {
         http_response_code(500);
         echo json_encode(['error' => 'Persist failed'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
-    echo json_encode(['ok' => true, 'entry' => $row, 'pending_registrations' => $state['pending_registrations']], JSON_UNESCAPED_UNICODE);
+    echo json_encode([
+        'ok' => true,
+        'entry' => $row,
+        'pending_registrations' => $state['pending_registrations'],
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 

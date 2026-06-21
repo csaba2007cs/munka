@@ -32,7 +32,7 @@ Minden oldalon (sorrendben):
 
 | Topic | Payload | Ki küldi | Retain |
 |-------|---------|----------|--------|
-| `session/control` | `start` \| `pause` \| `reset` | admin | nem |
+| `session/control` | `start` \| `pause` \| `reset` | admin | nem → **Node-RED** → `state.php` |
 | `session/group_contact` | `{"emails":[],"phones":[]}` | admin | nem |
 | `bigscreen/layer` | `photo` \| `video` \| `celebration` | admin | **igen** |
 | `bigscreen/photo` | URL vagy base64 | admin | **igen** |
@@ -80,8 +80,9 @@ Későn csatlakozó kiosk: a **retained** üzenetek automatikusan megérkeznek f
 mosquitto_pub -h 127.0.0.1 -r -t bigscreen/layer -m photo
 mosquitto_pub -h 127.0.0.1 -r -t bigscreen/photo -m "/shared/assets/images/poster_placeholder.svg"
 
-# Parancs (nem retained)
+# Parancs (nem retained) — session/control a Node-RED flow-on keresztül frissíti a state.json-t
 mosquitto_pub -h 127.0.0.1 -t session/control -m start
+# Ellenőrzés: curl -s http://127.0.0.1/api/state.php | jq .status  → "RUNNING"
 
 # Látogatók + kvíz
 mosquitto_pub -h 127.0.0.1 -r -t bigscreen/players -m '[{"photo":"/data/a.jpg","name":"ANNA"}]'

@@ -7,6 +7,7 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
 const stateFile = path.join(root, "data", "state.json");
+const stateLockFile = stateFile + ".lock";
 const dataDir = path.join(root, "data");
 const audioDir = path.join(root, "shared", "assets", "audio");
 
@@ -229,7 +230,41 @@ function applyHardwareEventLog(merged, patch) {
   return next;
 }
 
-function loadState() {
+function sleepSync(ms) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    /* ponytail: busy-wait ok for local dev file lock */
+  }
+}
+
+function withStateLock(fn) {
+  const maxWait = 5000;
+  const start = Date.now();
+  let fd = null;
+  while (Date.now() - start < maxWait) {
+    try {
+      fd = fs.openSync(stateLockFile, "wx");
+      break;
+    } catch {
+      sleepSync(25);
+    }
+  }
+  if (fd === null) {
+    throw new Error("state lock timeout");
+  }
+  try {
+    return fn();
+  } finally {
+    try {
+      fs.closeSync(fd);
+      fs.unlinkSync(stateLockFile);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function readStateDisk() {
   try {
     const raw = fs.readFileSync(stateFile, "utf8");
     if (!raw.trim()) return defaultStateInline();
@@ -240,13 +275,31 @@ function loadState() {
   }
 }
 
+function loadState() {
+  return readStateDisk();
+}
+
 function saveState(state) {
-  state.updated_at = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-  const json = JSON.stringify(state, null, 2);
-  const tmp = stateFile + ".tmp";
-  fs.mkdirSync(dataDir, { recursive: true });
-  fs.writeFileSync(tmp, json, "utf8");
-  fs.renameSync(tmp, stateFile);
+  try {
+    state.updated_at = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+    const json = JSON.stringify(state, null, 2);
+    const tmp = stateFile + ".tmp";
+    fs.mkdirSync(dataDir, { recursive: true });
+    fs.writeFileSync(tmp, json, "utf8");
+    fs.renameSync(tmp, stateFile);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function modifyState(mutator) {
+  return withStateLock(() => {
+    const current = readStateDisk();
+    const next = mutator(current);
+    if (!saveState(next)) return null;
+    return next;
+  });
 }
 
 function mergeState(current, patch) {
@@ -400,7 +453,10 @@ async function handleUpload(req, res) {
   });
 }
 
-function handlePhotoboothList(_req, res) {
+function handlePhotoboothList(req, res) {
+  const url = new URL(req.url || "/", "http://127.0.0.1");
+  const limitRaw = url.searchParams.get("limit");
+  const limit = limitRaw != null ? Math.min(50, Math.max(1, Number(limitRaw) || 12)) : 12;
   const allowed = new Set(["jpg", "jpeg", "png", "webp"]);
   const entries = [];
   if (fs.existsSync(dataDir)) {
@@ -420,7 +476,7 @@ function handlePhotoboothList(_req, res) {
     }
   }
   entries.sort((a, b) => (b.mtime_unix ?? 0) - (a.mtime_unix ?? 0));
-  const limited = entries.slice(0, 12).map(({ mtime_unix: _u, ...rest }) => rest);
+  const limited = entries.slice(0, limit).map(({ mtime_unix: _u, ...rest }) => rest);
   sendJson(res, 200, { files: limited });
 }
 
@@ -481,19 +537,26 @@ async function handleState(req, res) {
       return;
     }
     if (patch._full_reset) {
-      const fresh = defaultStateInline();
-      saveState(fresh);
+      const fresh = modifyState(() => defaultStateInline());
+      if (!fresh) {
+        sendJson(res, 500, { error: "Failed to persist state" });
+        return;
+      }
       sendJson(res, 200, fresh);
       return;
     }
-    const current = loadState();
-    const merged = ensureMobilmoziDefaults(
-      applyHardwareEventLog(
-        applyQuizAnswerLock(current, patch, mergeState(current, patch)),
-        patch,
+    const merged = modifyState((current) =>
+      ensureMobilmoziDefaults(
+        applyHardwareEventLog(
+          applyQuizAnswerLock(current, patch, mergeState(current, patch)),
+          patch,
+        ),
       ),
     );
-    saveState(merged);
+    if (!merged) {
+      sendJson(res, 500, { error: "Failed to persist state" });
+      return;
+    }
     sendJson(res, 200, merged);
     return;
   }
@@ -531,20 +594,25 @@ async function handleAudio(req, res) {
       sendJson(res, 404, { error: "Unknown clip" });
       return;
     }
-    const state = loadState();
-    if (!isPlainObject(state.audio)) state.audio = {};
-    const entry = {
+    const trigger = {
       clip,
       url: "/shared/assets/audio/" + encodeURIComponent(clip),
       at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
     };
-    state.audio.last_triggered = entry;
-    if (!Array.isArray(state.audio.queue)) state.audio.queue = [];
-    state.audio.queue.push(entry);
-    saveState(state);
+    const state = modifyState((current) => {
+      if (!isPlainObject(current.audio)) current.audio = {};
+      current.audio.last_triggered = trigger;
+      if (!Array.isArray(current.audio.queue)) current.audio.queue = [];
+      current.audio.queue.push(trigger);
+      return current;
+    });
+    if (!state) {
+      sendJson(res, 500, { error: "Persist failed" });
+      return;
+    }
     sendJson(res, 200, {
       ok: true,
-      playUrl: entry.url,
+      playUrl: trigger.url,
       state,
     });
     return;
@@ -581,22 +649,28 @@ async function handleRegister(req, res) {
       sendJson(res, 400, { error: "Name too long (max 120)" });
       return;
     }
-    const state = loadState();
-    if (!Array.isArray(state.pending_registrations)) state.pending_registrations = [];
-    let maxId = 0;
-    for (const row of state.pending_registrations) {
-      if (row && row.id != null) {
-        const n = Number(row.id);
-        if (!Number.isNaN(n)) maxId = Math.max(maxId, n);
+    let entry = null;
+    const state = modifyState((current) => {
+      if (!Array.isArray(current.pending_registrations)) current.pending_registrations = [];
+      let maxId = 0;
+      for (const row of current.pending_registrations) {
+        if (row && row.id != null) {
+          const n = Number(row.id);
+          if (!Number.isNaN(n)) maxId = Math.max(maxId, n);
+        }
       }
+      entry = {
+        id: maxId + 1,
+        name,
+        at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
+      };
+      current.pending_registrations.push(entry);
+      return current;
+    });
+    if (!state || !entry) {
+      sendJson(res, 500, { error: "Persist failed" });
+      return;
     }
-    const entry = {
-      id: maxId + 1,
-      name,
-      at: new Date().toISOString().replace(/\.\d{3}Z$/, "Z"),
-    };
-    state.pending_registrations.push(entry);
-    saveState(state);
     sendJson(res, 200, {
       ok: true,
       entry,

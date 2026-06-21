@@ -207,7 +207,7 @@ export function initQuizPanel({ root, sync, touchEnabled = true }) {
       ) {
         btn.classList.add("is-wrong");
       }
-      btn.addEventListener("click", () => void onSelectOption(opt.id, correctId));
+      btn.addEventListener("click", () => void onSelectOption(opt.id, correctId, btn));
       btn.disabled = !touchEnabled || status !== "RUNNING" || feedbackVisible;
       elChoices.appendChild(btn);
     }
@@ -276,8 +276,10 @@ export function initQuizPanel({ root, sync, touchEnabled = true }) {
   }
 }
 
-  async function onSelectOption(optionId, correctId) {
+  async function onSelectOption(optionId, correctId, btn) {
     if (!touchEnabled) return;
+    if (btn?.disabled) return;
+    if (btn) btn.disabled = true;
     const snap = await sync.get();
     if (String(snap.status ?? "") !== "RUNNING") {
       return;
