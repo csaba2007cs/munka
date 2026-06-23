@@ -1,6 +1,7 @@
 const form = document.getElementById("reg-form");
 const nameInput = document.getElementById("reg-name");
 const msg = document.getElementById("reg-msg");
+const submitBtn = form?.querySelector('button[type="submit"], input[type="submit"]');
 
 function setMsg(text, isErr) {
   if (!msg) return;
@@ -15,6 +16,7 @@ form?.addEventListener("submit", async (e) => {
     setMsg("Adj meg nevet.", true);
     return;
   }
+  if (submitBtn) submitBtn.disabled = true;
   setMsg("Küldés…", false);
   try {
     const res = await fetch("/api/register.php", {
@@ -30,6 +32,8 @@ form?.addEventListener("submit", async (e) => {
     setMsg("Köszönjük — az operátor hamarosan felveszi a névsorba.", false);
     if (nameInput) nameInput.value = "";
   } catch (err) {
-    setMsg(String(err), true);
+    setMsg("Hálózati hiba — próbáld újra.", true);
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
   }
 });

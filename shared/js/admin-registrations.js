@@ -21,6 +21,15 @@
     return res.json();
   }
 
+  function formatAt(at) {
+    if (!at) return "";
+    try {
+      return new Date(at).toLocaleString("hu-HU");
+    } catch {
+      return String(at);
+    }
+  }
+
   function init(opts) {
     const listEl = opts.listEl;
     const toast = opts.onToast || function () {};
@@ -42,7 +51,7 @@
         for (const row of pending) {
           const li = document.createElement("li");
           const name = String(row.name ?? "").trim() || "—";
-          const at = row.at ? ` (${row.at})` : "";
+          const at = row.at ? " · " + formatAt(row.at) : "";
           li.textContent = name + at;
           ul.appendChild(li);
         }
@@ -61,7 +70,7 @@
       const s = await stateRes.json();
       const pending = Array.isArray(s.pending_registrations) ? s.pending_registrations : [];
       if (!pending.length) {
-        toast("Nincs importálandó regisztráció.", true);
+        toast("Nincs importálandó függő regisztráció.", "info");
         return;
       }
       const players = Array.isArray(s.players) ? s.players.map((p) => ({ ...p })) : [];
@@ -72,8 +81,14 @@
         maxId += 1;
         players.push({ id: maxId, name });
       }
-      await patchState({ players, pending_registrations: [], players_confirmed: false });
-      toast(`${pending.length} név importálva a névsorhoz.`, true);
+      const updated = await patchState({ players, pending_registrations: [], players_confirmed: false });
+      toast(
+        pending.length + " név importálva — adj hozzá fotókat a látogatókhoz, majd küldés.",
+        true,
+      );
+      if (typeof opts.onAfterImport === "function") {
+        opts.onAfterImport(updated);
+      }
       refresh();
     }
 
@@ -83,9 +98,9 @@
     }
 
     async function clearPending() {
-      if (!global.confirm("Törlöd a várólistát? A regisztrációk elvesznek.")) return;
+      if (!global.confirm("Törlöd a függő regisztrációkat?")) return;
       await patchState({ pending_registrations: [] });
-      toast("Várólista törölve.", true);
+      toast("Függő regisztrációk törölve.", true);
       refresh();
     }
 

@@ -44,7 +44,11 @@ mosquitto_pub -h 127.0.0.1 -t bigscreen/layer -m celebration
 |---------|-----------------|
 | `start` | `{ "status": "RUNNING" }` |
 | `pause` | `{ "status": "PAUSED" }` |
+| `stop` | `{ "status": "IDLE", quiz_state reset }` |
+| `complete` | `{ "status": "COMPLETED" }` |
 | `reset` | `{ "status": "IDLE", "current_step": 1, quiz_state reset }` |
+
+`session/group_contact` → `{ group_contact: { email, phone } }` (első e-mail / telefon).
 
 Ellenőrzés: `mosquitto_pub … session/control start` után `GET /api/state.php` → `RUNNING`; a `/quiz/` oldal fogad válaszokat.
 

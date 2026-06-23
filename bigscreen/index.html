@@ -50,12 +50,23 @@
         background: #051018;
       }
 
-      #layer-video {
+      #layer-video,
+      #layer-video-mjpeg {
         display: block;
         width: 100%;
         height: 100%;
         object-fit: cover;
         background: #000;
+      }
+
+      #layer-video-mjpeg {
+        position: absolute;
+        inset: 0;
+      }
+
+      #layer-video[hidden],
+      #layer-video-mjpeg[hidden] {
+        display: none !important;
       }
 
       #layer-celebration-bg {
@@ -107,6 +118,7 @@
         pointer-events: none;
       }
     </style>
+    <script src="/shared/js/media-url.js"></script>
     <script src="https://unpkg.com/mqtt@5.10.4/dist/mqtt.min.js"></script>
     <script src="/shared/js/mqtt-client.js"></script>
   </head>
@@ -116,7 +128,8 @@
     </section>
 
     <section id="layer-video-wrap" class="layer" aria-hidden="true">
-      <video id="layer-video" playsinline></video>
+      <video id="layer-video" playsinline muted></video>
+      <img id="layer-video-mjpeg" alt="" hidden />
     </section>
 
     <section id="layer-celebration" class="layer" aria-hidden="true">
@@ -136,6 +149,7 @@
         };
         const photoImg = document.getElementById("layer-photo-img");
         const videoEl = document.getElementById("layer-video");
+        const mjpegEl = document.getElementById("layer-video-mjpeg");
         const celebrationBg = document.getElementById("layer-celebration-bg");
         const bannerPhoto = document.getElementById("banner-photo");
         const bannerName = document.getElementById("banner-name");
@@ -346,7 +360,9 @@
           }
           cheerAudio = new Audio(cheerUrl);
           cheerAudio.loop = true;
-          void cheerAudio.play().catch(function () {});
+          cheerAudio.play().catch(function (err) {
+            setStatus("CHEER // " + String(err.message || err));
+          });
         }
 
         function startCelebrationCarousel() {
@@ -373,9 +389,19 @@
           } catch (_) {}
         }
 
+        function isMjpegUrl(url) {
+          return window.NanoportalMediaUrl && window.NanoportalMediaUrl.isMjpegUrl(url);
+        }
+
         function playVideo() {
+          if (mjpegEl && !mjpegEl.hidden) return;
           if (!videoEl || !videoEl.src) return;
-          void videoEl.play().catch(function () {});
+          const p = videoEl.play();
+          if (p && typeof p.catch === "function") {
+            p.catch(function (err) {
+              setStatus("VIDEO // " + String(err.message || err));
+            });
+          }
         }
 
         function pauseVideo() {
@@ -385,21 +411,56 @@
 
         function setPhotoSrc(raw) {
           const src = resolveImageSrc(raw);
-          if (photoImg && src) {
-            photoImg.src = src;
-            photoImg.alt = "Üdvözlő fotó";
+          if (!photoImg) return;
+          if (!src) {
+            photoImg.removeAttribute("src");
+            photoImg.alt = "";
+            return;
           }
+          photoImg.src = src;
+          photoImg.alt = "Üdvözlő fotó";
         }
 
         function setVideoSrc(raw) {
-          if (!videoEl) return;
           const src = resolveMediaUrl(raw);
-          if (!src) return;
+          if (!src) {
+            if (videoEl) {
+              videoEl.pause();
+              videoEl.removeAttribute("src");
+              videoEl.hidden = false;
+            }
+            if (mjpegEl) {
+              mjpegEl.hidden = true;
+              mjpegEl.removeAttribute("src");
+            }
+            return;
+          }
           const wasActive = activeLayer === "video";
           resetVideo();
-          videoEl.src = src;
-          videoEl.load();
-          if (wasActive) playVideo();
+          if (isMjpegUrl(src)) {
+            if (videoEl) {
+              videoEl.hidden = true;
+              videoEl.removeAttribute("src");
+            }
+            if (mjpegEl) {
+              mjpegEl.hidden = false;
+              mjpegEl.src = src + (src.includes("?") ? "&" : "?") + "_t=" + Date.now();
+              mjpegEl.onerror = function () {
+                setStatus("MJPEG // betöltés sikertelen");
+              };
+            }
+          } else {
+            if (mjpegEl) {
+              mjpegEl.hidden = true;
+              mjpegEl.removeAttribute("src");
+            }
+            if (videoEl) {
+              videoEl.hidden = false;
+              videoEl.src = src;
+              videoEl.load();
+            }
+            if (wasActive) playVideo();
+          }
         }
 
         function setActiveLayer(name) {

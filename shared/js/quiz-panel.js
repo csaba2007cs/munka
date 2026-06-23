@@ -280,22 +280,30 @@ export function initQuizPanel({ root, sync, touchEnabled = true }) {
     if (!touchEnabled) return;
     if (btn?.disabled) return;
     if (btn) btn.disabled = true;
-    const snap = await sync.get();
-    if (String(snap.status ?? "") !== "RUNNING") {
-      return;
+    try {
+      const snap = await sync.get();
+      if (String(snap.status ?? "") !== "RUNNING") {
+        if (btn) btn.disabled = false;
+        return;
+      }
+      const q = asObject(snap.quiz_state);
+      if (Boolean(q.feedback_visible)) {
+        if (btn) btn.disabled = false;
+        return;
+      }
+      const isCorrect = optionId === correctId;
+      await sync.patch({
+        quiz_state: {
+          selected_answer: optionId,
+          validation: isCorrect ? "correct" : "incorrect",
+          feedback_visible: isCorrect,
+        },
+      });
+    } catch (e) {
+      const el = $("sync-status");
+      if (el) el.textContent = `SYNC // hiba: ${String(e)}`;
+      if (btn) btn.disabled = false;
     }
-  const q = asObject(snap.quiz_state);
-  if (Boolean(q.feedback_visible)) {
-    return;
-  }
-  const isCorrect = optionId === correctId;
-    await sync.patch({
-      quiz_state: {
-        selected_answer: optionId,
-        validation: isCorrect ? "correct" : "incorrect",
-        feedback_visible: isCorrect,
-      },
-    });
   }
 
   async function onNext() {

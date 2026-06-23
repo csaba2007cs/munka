@@ -110,12 +110,16 @@ export function mountPhotobooth(root, { onToast = () => {} } = {}) {
         return;
       }
       for (const f of files) {
-        const img = el("img");
+        const link = el("a");
+        link.href = f.path;
+        link.target = "_blank";
+        link.rel = "noopener";
+        const img = el("img", "pb-thumb");
         img.src = f.path;
         img.alt = f.filename || "";
         img.loading = "lazy";
-        img.className = "pb-thumb";
-        gallery.appendChild(img);
+        link.appendChild(img);
+        gallery.appendChild(link);
       }
     } catch (e) {
       gallery.appendChild(el("p", "field-error", String(e.message || e)));

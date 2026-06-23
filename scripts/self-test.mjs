@@ -234,6 +234,9 @@ const extraPaths = [
   "shared/js/admin-registrations.js",
   "shared/js/admin-photobooth.js",
   "shared/js/admin-hardware.js",
+  "shared/js/admin-status.js",
+  "shared/js/admin-audio.js",
+  "shared/js/media-url.js",
   "api/state_lib.php",
   "shared/celebration-templates.json",
   "shared/assets/celebration/crowd-europe.png",
@@ -371,6 +374,10 @@ if (!adminHtml.includes("/shared/js/mqtt-client.js") || !adminHtml.includes("sma
   fail("admin/index.html: mqtt-client vagy quiz/result feliratkozás hiányzik");
 } else ok("admin/index.html: mqtt-client + quiz result");
 
+if (!adminHtml.includes("Ünneplés") || !adminHtml.includes("btn-load-roster")) {
+  fail("admin/index.html: sprint C HU copy vagy névsor betöltés hiányzik");
+} else ok("admin/index.html: sprint C operátor UX");
+
 const mqttClientJs = fs.readFileSync(path.join(root, "shared", "js", "mqtt-client.js"), "utf8");
 if (!mqttClientJs.includes("NanoportalMqtt") || !mqttClientJs.includes("RETAIN_TOPICS")) {
   fail("mqtt-client.js: NanoportalMqtt vagy RETAIN_TOPICS hiányzik");
@@ -388,6 +395,19 @@ if (!flowJson.includes("mobilmozi/#") || !flowJson.includes("raw.screens")) {
 if (!flowJson.includes("session/control") || !flowJson.includes("fn_session_control")) {
   fail("mqtt-to-state.flow.json: session/control → state.php hiányzik");
 } else ok("Node-RED flow: session/control bridge");
+
+if (!flowJson.includes("session/group_contact") || !flowJson.includes("fn_group_contact")) {
+  fail("mqtt-to-state.flow.json: session/group_contact → state.php hiányzik");
+} else ok("Node-RED flow: group_contact bridge");
+
+const displayJs = fs.readFileSync(path.join(root, "display", "display.js"), "utf8");
+if (!displayJs.includes(".pause()") || !displayJs.includes("resolveAssetOrUrl")) {
+  fail("display/display.js: media clear/URL resolve hiányzik");
+} else ok("display.js: pause + asset/URL resolve");
+
+if (!fs.existsSync(path.join(root, "shared", "js", "media-url.js"))) {
+  fail("hiányzó: shared/js/media-url.js");
+} else ok("létezik: shared/js/media-url.js");
 
 if (failed) {
   process.exit(1);

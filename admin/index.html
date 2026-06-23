@@ -97,10 +97,50 @@
 
       .quiz-result-line {
         margin: 0;
-        width: 100%;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         color: rgba(255, 255, 255, 0.55);
         text-align: right;
+      }
+
+      .header-stack {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.35rem;
+        min-width: 0;
+      }
+
+      .header-pills {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        justify-content: flex-end;
+        align-items: center;
+      }
+
+      .state-status-line {
+        margin: 0;
+        font-size: 0.8rem;
+        color: rgba(255, 255, 255, 0.65);
+        text-align: right;
+      }
+
+      .status-roster.is-ok {
+        color: #3ddc84;
+      }
+
+      .status-roster.is-warn {
+        color: #ffc107;
+      }
+
+      .toast.is-info {
+        border-color: rgba(0, 191, 255, 0.5);
+        background: rgba(0, 60, 90, 0.92);
+      }
+
+      button:focus-visible {
+        outline: 2px solid #00bfff;
+        outline-offset: 2px;
       }
 
       .quiz-result-line.is-visible {
@@ -415,10 +455,26 @@
 
       .pending-list {
         margin: 0.5rem 0 0;
-        padding-left: 1.25rem;
+        padding: 0.5rem 0.75rem;
+        list-style: none;
+        max-height: 200px;
+        overflow-y: auto;
+        border: 1px solid rgba(0, 191, 255, 0.2);
+        border-radius: 8px;
       }
 
-      .photobooth-wrap .pb-live,
+      .pending-list li {
+        padding: 0.35rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      }
+
+      .pending-list li:last-child {
+        border-bottom: none;
+      }
+
+      .photobooth-wrap .pb-live {
+        transform: scaleX(-1);
+      }
       .photobooth-wrap .pb-preview {
         width: 100%;
         max-height: 240px;
@@ -478,7 +534,21 @@
         color: #ff8888;
       }
 
-      .hardware-log-meta {
+      .hardware-led-badge.is-unknown {
+        background: rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.55);
+      }
+
+      .hardware-log-empty {
+        color: rgba(255, 255, 255, 0.45);
+        font-size: 0.9rem;
+      }
+
+      .audio-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
         display: block;
         font-size: 0.75rem;
         opacity: 0.7;
@@ -493,17 +563,23 @@
       }
     </style>
     <script src="https://unpkg.com/mqtt@5.10.4/dist/mqtt.min.js"></script>
+    <script src="/shared/js/media-url.js"></script>
     <script src="/shared/js/admin-upload.js"></script>
     <script src="/shared/js/admin-registrations.js"></script>
     <script src="/shared/js/admin-hardware.js"></script>
+    <script src="/shared/js/admin-status.js"></script>
+    <script src="/shared/js/admin-audio.js"></script>
     <script src="/shared/js/mqtt-client.js"></script>
   </head>
   <body>
     <header class="sticky-header">
       <p class="brand">NANOPORTAL // OPERÁTOR</p>
-      <div>
-        <p id="mqtt-status" class="mqtt-pill is-connecting" role="status" aria-live="polite">MQTT …</p>
-        <p id="quiz-result-line" class="quiz-result-line" hidden aria-live="polite"></p>
+      <div class="header-stack">
+        <p id="state-status-line" class="state-status-line">Állapot: …</p>
+        <div class="header-pills">
+          <p id="mqtt-status" class="mqtt-pill is-connecting" role="status">MQTT …</p>
+          <p id="quiz-result-line" class="quiz-result-line" hidden aria-live="polite"></p>
+        </div>
       </div>
     </header>
 
@@ -512,8 +588,12 @@
         <h2 class="section-title" id="sec-session">Élmény vezérlés</h2>
         <div class="btn-row">
           <button type="button" class="btn-start" id="btn-session-start" disabled>START</button>
-          <button type="button" class="btn-pause" id="btn-session-pause" disabled>PAUSE</button>
+          <button type="button" class="btn-start" id="btn-session-resume" disabled>FOLYTATÁS</button>
+          <button type="button" class="btn-pause" id="btn-session-pause" disabled>SZÜNET</button>
+          <button type="button" class="btn-pause" id="btn-session-stop" disabled>MEGSZAKÍTÁS</button>
+          <button type="button" class="btn-reset" id="btn-session-complete" disabled>LEZÁRÁS</button>
           <button type="button" class="btn-reset" id="btn-session-reset" disabled>RESET</button>
+          <button type="button" class="btn-ghost" id="btn-session-full-reset">Teljes reset</button>
         </div>
       </section>
 
@@ -532,13 +612,13 @@
         <h2 class="section-title" id="sec-big">Nagy kijelző (60")</h2>
         <div class="btn-row">
           <button type="button" class="btn-primary" data-publish-layer="bigscreen/layer" data-layer="photo" disabled>
-            Show Photo
+            Fotó
           </button>
           <button type="button" class="btn-primary" data-publish-layer="bigscreen/layer" data-layer="video" disabled>
-            Play Video
+            Videó
           </button>
           <button type="button" class="btn-primary" data-publish-layer="bigscreen/layer" data-layer="celebration" disabled>
-            Celebration
+            Ünneplés
           </button>
         </div>
       </section>
@@ -547,15 +627,23 @@
         <h2 class="section-title" id="sec-small">Érintőképernyő (21")</h2>
         <div class="btn-row">
           <button type="button" class="btn-primary" data-publish-layer="smallscreen/layer" data-layer="photo" disabled>
-            Show Image
+            Kép
           </button>
-          <button type="button" class="btn-primary" data-publish-layer="smallscreen/layer" data-layer="video" disabled>
-            Play Video
+          <button type="button" class="btn-primary" id="btn-smallscreen-video" disabled>
+            Videó
           </button>
           <button type="button" class="btn-primary" data-publish-layer="smallscreen/layer" data-layer="quiz" disabled>
-            Show Quiz
+            Kvíz
           </button>
         </div>
+        <label class="field-label" for="smallscreen-video-url" style="margin-top: 0.75rem">Videó URL (21")</label>
+        <input type="url" id="smallscreen-video-url" autocomplete="off" spellcheck="false" placeholder="http://… vagy /shared/assets/video/…" />
+      </section>
+
+      <section class="panel" aria-labelledby="sec-audio">
+        <h2 class="section-title" id="sec-audio">Hangok</h2>
+        <p class="section-lead">Előre feltöltött hangfájlok — a fő kijelzőn is hallható.</p>
+        <div id="audio-grid" class="audio-grid"></div>
       </section>
 
       <section class="panel" aria-labelledby="sec-hardware">
@@ -602,17 +690,20 @@
         <p class="section-lead">E-mail és telefon — küldés a „Képernyőkre küldés” gombbal.</p>
         <h3 class="field-label">E-mail</h3>
         <div id="email-rows"></div>
-        <button type="button" class="btn-ghost" id="btn-add-email">+ Add Email</button>
+        <button type="button" class="btn-ghost" id="btn-add-email">+ E-mail</button>
         <h3 class="field-label" style="margin-top: 1rem">Telefon</h3>
         <div id="phone-rows"></div>
-        <button type="button" class="btn-ghost" id="btn-add-phone">+ Add Phone</button>
+        <button type="button" class="btn-ghost" id="btn-add-phone">+ Telefon</button>
       </section>
 
       <section class="panel" aria-labelledby="sec-visitors">
         <h2 class="section-title" id="sec-visitors">Látogatók (2–6)</h2>
         <p class="section-lead">Hátsó kamera (environment) vagy fájl feltöltés.</p>
         <div id="visitor-slots"></div>
-        <button type="button" class="btn-ghost" id="btn-add-visitor">+ Add Visitor</button>
+        <div class="action-row">
+          <button type="button" class="btn-ghost" id="btn-add-visitor">+ Látogató</button>
+          <button type="button" class="btn-ghost" id="btn-load-roster">Betöltés névsorból</button>
+        </div>
       </section>
 
       <section class="panel" aria-labelledby="sec-quiz">
@@ -636,7 +727,11 @@
       </section>
 
       <section class="panel">
-        <div class="action-row">
+        <label class="field-label">
+          <input type="checkbox" id="send-layer-quiz" checked />
+          Kvíz réteg küldése (21") ha van kvíz JSON
+        </label>
+        <div class="action-row" style="margin-top: 0.75rem">
           <button type="button" class="btn-primary" id="btn-send-screens" disabled>Képernyőkre küldés</button>
           <button type="button" class="btn-primary" id="btn-send-welcome" disabled>Üdvözlő fotó küldése</button>
         </div>
@@ -752,20 +847,77 @@
 
         function updatePublishButtons() {
           const disabled = !mqttConnected;
-          document.querySelectorAll("button[data-publish-layer], #btn-session-start, #btn-session-pause, #btn-session-reset, #btn-send-screens, #btn-send-welcome, #btn-ip-cam-send-tv").forEach(function (btn) {
-            btn.disabled = disabled;
-          });
+          document
+            .querySelectorAll(
+              "button[data-publish-layer], #btn-session-start, #btn-session-resume, #btn-session-pause, #btn-session-stop, #btn-session-complete, #btn-session-reset, #btn-smallscreen-video, #btn-send-screens, #btn-send-welcome, #btn-ip-cam-send-tv",
+            )
+            .forEach(function (btn) {
+              btn.disabled = disabled;
+            });
         }
 
         let toastTimer = null;
         function showToast(message, ok) {
           if (!toastEl) return;
           toastEl.textContent = message;
-          toastEl.className = "toast is-visible " + (ok ? "is-ok" : "is-err");
+          const cls =
+            ok === "info" ? "is-info" : ok === true || ok === undefined ? "is-ok" : "is-err";
+          toastEl.className = "toast is-visible " + cls;
           if (toastTimer) window.clearTimeout(toastTimer);
           toastTimer = window.setTimeout(function () {
             toastEl.classList.remove("is-visible");
           }, 3200);
+        }
+
+        function toastAdapter(message, ok) {
+          showToast(message, ok);
+        }
+
+        async function patchState(body) {
+          const res = await fetch("/api/state.php", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+          if (!res.ok) {
+            const err = await res.json().catch(function () {
+              return {};
+            });
+            throw new Error(err.error || "state.php hiba");
+          }
+          return res.json();
+        }
+
+        function contactToLegacy(contact) {
+          const emails = contact && Array.isArray(contact.emails) ? contact.emails : [];
+          const phones = contact && Array.isArray(contact.phones) ? contact.phones : [];
+          const email = emails.map(function (e) {
+            return String(e || "").trim();
+          }).find(Boolean) || "";
+          const phone = phones.map(function (p) {
+            return String(p || "").trim();
+          }).find(Boolean) || "";
+          return { email: email, phone: phone };
+        }
+
+        function fillVisitorsFromPlayers(players) {
+          const list = Array.isArray(players) ? players : [];
+          const need = Math.max(CONFIG.minVisitors, list.length, visitors.length);
+          while (visitors.length < need && visitors.length < CONFIG.maxVisitors) {
+            visitors.push({ nickname: "", photo: "" });
+          }
+          for (let i = 0; i < list.length && i < visitors.length; i++) {
+            const name = String(list[i].name || "").trim();
+            if (name) visitors[i].nickname = name;
+          }
+          renderAllVisitors();
+        }
+
+        async function loadRosterFromState() {
+          const res = await fetch("/api/state.php", { cache: "no-store" });
+          const s = await res.json();
+          fillVisitorsFromPlayers(s.players);
+          showToast("Névsor betöltve — fotók még szükségesek.", true);
         }
 
         function publish(topic, payload) {
@@ -1049,7 +1201,7 @@
             const removeBtn = document.createElement("button");
             removeBtn.type = "button";
             removeBtn.className = "btn-ghost";
-            removeBtn.textContent = "− Remove";
+            removeBtn.textContent = "− Eltávolítás";
             removeBtn.addEventListener("click", function () {
               removeVisitorSlot(index);
             });
@@ -1082,7 +1234,7 @@
           const takeBtn = document.createElement("button");
           takeBtn.type = "button";
           takeBtn.className = "btn-primary";
-          takeBtn.textContent = "Take Photo / Upload";
+          takeBtn.textContent = "Fotó / feltöltés";
           takeBtn.addEventListener("click", function () {
             openCamModal("Látogató " + (index + 1), { type: "visitor", index: index });
           });
@@ -1115,7 +1267,7 @@
           const retakeBtn = document.createElement("button");
           retakeBtn.type = "button";
           retakeBtn.className = "btn-ghost";
-          retakeBtn.textContent = "Re-take";
+          retakeBtn.textContent = "Újra";
           retakeBtn.addEventListener("click", function () {
             visitors[index].photo = "";
             thumb.removeAttribute("src");
@@ -1296,6 +1448,12 @@
         }
 
         document.getElementById("btn-session-start").addEventListener("click", function () {
+          const st = window.NanoportalAdminStatus && window.NanoportalAdminStatus.getState();
+          if (st && !st.players_confirmed) {
+            if (!window.confirm('A „Névsor rendben” nincs megnyomva. Biztosan indítod az élményt?')) {
+              return;
+            }
+          }
           publish("session/control", "start")
             .then(function () {
               showToast("START elküldve", true);
@@ -1304,19 +1462,78 @@
               showToast(String(e.message || e), false);
             });
         });
+        document.getElementById("btn-session-resume").addEventListener("click", function () {
+          publish("session/control", "start")
+            .then(function () {
+              showToast("FOLYTATÁS elküldve", true);
+            })
+            .catch(function (e) {
+              showToast(String(e.message || e), false);
+            });
+        });
         document.getElementById("btn-session-pause").addEventListener("click", function () {
           publish("session/control", "pause")
             .then(function () {
-              showToast("PAUSE elküldve", true);
+              showToast("SZÜNET elküldve", true);
+            })
+            .catch(function (e) {
+              showToast(String(e.message || e), false);
+            });
+        });
+        document.getElementById("btn-session-stop").addEventListener("click", function () {
+          if (
+            !window.confirm(
+              "Megszakítod az élményt? A kvíz zárolva lesz, de később újra indítható.",
+            )
+          ) {
+            return;
+          }
+          patchState({
+            status: "IDLE",
+            quiz_state: {
+              selected_answer: null,
+              validation: "idle",
+              feedback_visible: false,
+            },
+          })
+            .then(function () {
+              showToast("Élmény megszakítva (IDLE).", true);
+            })
+            .catch(function (e) {
+              showToast(String(e.message || e), false);
+            });
+        });
+        document.getElementById("btn-session-complete").addEventListener("click", function () {
+          if (!window.confirm("Lezárod az élményt (COMPLETED)?")) return;
+          patchState({ status: "COMPLETED" })
+            .then(function () {
+              showToast("Élmény lezárva.", true);
             })
             .catch(function (e) {
               showToast(String(e.message || e), false);
             });
         });
         document.getElementById("btn-session-reset").addEventListener("click", function () {
+          if (
+            !window.confirm(
+              "RESET: állapot IDLE, kvíz 1. lépésre — folytatod?",
+            )
+          ) {
+            return;
+          }
           publish("session/control", "reset")
             .then(function () {
               showToast("RESET elküldve", true);
+            })
+            .catch(function (e) {
+              showToast(String(e.message || e), false);
+            });
+        });
+        document.getElementById("btn-session-full-reset").addEventListener("click", function () {
+          if (!window.confirm("Teljes reset — minden állapot alaphelyzetbe?")) return;
+          patchState({ _full_reset: true })
+            .then(function () {
+              showToast("Teljes reset kész.", true);
             })
             .catch(function (e) {
               showToast(String(e.message || e), false);
@@ -1344,6 +1561,26 @@
           createContactRow(phoneRowsEl, "phone", "");
         });
         document.getElementById("btn-add-visitor").addEventListener("click", addVisitorSlot);
+        document.getElementById("btn-load-roster").addEventListener("click", function () {
+          void loadRosterFromState().catch(function (e) {
+            showToast(String(e.message || e), false);
+          });
+        });
+
+        document.getElementById("btn-smallscreen-video").addEventListener("click", function () {
+          const url = String(document.getElementById("smallscreen-video-url").value || "").trim();
+          if (!url) {
+            showToast("Add meg a videó URL-t.", false);
+            return;
+          }
+          Promise.all([publish("smallscreen/video", url), publish("smallscreen/layer", "video")])
+            .then(function () {
+              showToast("Kis kijelző videó elküldve", true);
+            })
+            .catch(function (e) {
+              showToast(String(e.message || e), false);
+            });
+        });
 
         document.getElementById("btn-ip-cam-apply").addEventListener("click", function () {
           applyIpCamera(ipCamUrlEl.value);
@@ -1434,15 +1671,29 @@
             quizErrorEl.hidden = true;
           }
           const contact = collectContacts();
+          const sendQuizLayer = document.getElementById("send-layer-quiz").checked;
           try {
             await publish("bigscreen/players", JSON.stringify(players.data));
             await publish("session/group_contact", JSON.stringify(contact));
             if (quizRaw) {
               await publish("smallscreen/quiz", quizRaw);
-              await publish("smallscreen/layer", "quiz");
+              if (sendQuizLayer) await publish("smallscreen/layer", "quiz");
             }
-            await publish("bigscreen/layer", "celebration");
-            showToast("Adatok és rétegek elküldve", true);
+            const stateVisitors = [];
+            for (let i = 0; i < visitors.length; i++) {
+              const nick = String(visitors[i].nickname || "").trim();
+              const photo = players.data[i] ? players.data[i].photo : "";
+              stateVisitors.push({ id: i + 1, nickname: nick, photo: photo });
+            }
+            const statePatch = {
+              visitors: stateVisitors,
+              group_contact: contactToLegacy(contact),
+            };
+            if (quizRaw && sendQuizLayer) {
+              statePatch.screens = { small: { layer: "quiz" } };
+            }
+            await patchState(statePatch);
+            showToast("Adatok elküldve", true);
           } catch (e) {
             showToast(String(e.message || e), false);
           }
@@ -1476,14 +1727,22 @@
             showToast("Add meg a stream URL-t.", false);
             return;
           }
+          const Media = window.NanoportalMediaUrl;
+          const mjpeg = Media && Media.isMjpegUrl(url);
           try {
-            await fetch("/api/state.php", {
+            const res = await fetch("/api/state.php", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ display: { camera_feed_url: url } }),
             });
-            await publish("bigscreen/video", url);
-            await publish("bigscreen/layer", "video");
+            if (!res.ok) throw new Error("state.php mentés sikertelen");
+            if (mjpeg) {
+              await publish("bigscreen/photo", url);
+              await publish("bigscreen/layer", "photo");
+            } else {
+              await publish("bigscreen/video", url);
+              await publish("bigscreen/layer", "video");
+            }
             showToast("IP kamera elküldve a nagy TV-re.", true);
           } catch (e) {
             showToast(String(e.message || e), false);
@@ -1505,7 +1764,42 @@
             importBtn: document.getElementById("btn-pending-import"),
             confirmBtn: document.getElementById("btn-players-confirmed"),
             clearBtn: document.getElementById("btn-pending-clear"),
-            onToast: showToast,
+            onToast: toastAdapter,
+            onAfterImport: function (state) {
+              fillVisitorsFromPlayers(state.players);
+            },
+          });
+        }
+
+        if (window.NanoportalAdminStatusInit) {
+          window.NanoportalAdminStatusInit.init({
+            els: {
+              status: null,
+              step: null,
+              roster: null,
+              sync: document.getElementById("state-status-line"),
+            },
+            pollMs: 3000,
+          });
+          const statusLine = document.getElementById("state-status-line");
+          window.setInterval(function () {
+            const st = window.NanoportalAdminStatus && window.NanoportalAdminStatus.getState();
+            if (!st || !statusLine) return;
+            const confirmed = st.players_confirmed ? "névsor OK" : "névsor ?";
+            statusLine.textContent =
+              "Állapot: " +
+              String(st.status ?? "—") +
+              " · lépés " +
+              String(st.current_step ?? "—") +
+              "/4 · " +
+              confirmed;
+          }, 3000);
+        }
+
+        if (window.NanoportalAdminAudio) {
+          window.NanoportalAdminAudio.init({
+            gridEl: document.getElementById("audio-grid"),
+            onToast: toastAdapter,
           });
         }
 
@@ -1521,7 +1815,7 @@
             },
             testMotionBtn: document.getElementById("btn-hw-test-motion"),
             clearLogBtn: document.getElementById("btn-hw-clear-log"),
-            onToast: showToast,
+            onToast: toastAdapter,
           });
         }
 
@@ -1544,7 +1838,7 @@
                   break;
                 case "connected":
                   mqttConnected = true;
-                  setMqttStatus("is-connected", "MQTT OK");
+                  setMqttStatus("is-connected", "MQTT csatlakozva");
                   updatePublishButtons();
                   break;
                 case "reconnecting":

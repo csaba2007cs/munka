@@ -32,8 +32,8 @@ Minden oldalon (sorrendben):
 
 | Topic | Payload | Ki küldi | Retain |
 |-------|---------|----------|--------|
-| `session/control` | `start` \| `pause` \| `reset` | admin | nem → **Node-RED** → `state.php` |
-| `session/group_contact` | `{"emails":[],"phones":[]}` | admin | nem |
+| `session/control` | `start` \| `pause` \| `stop` \| `complete` \| `reset` | admin | nem → **Node-RED** → `state.php` |
+| `session/group_contact` | `{"emails":[],"phones":[]}` | admin | nem → **Node-RED** → `group_contact` |
 | `bigscreen/layer` | `photo` \| `video` \| `celebration` | admin | **igen** |
 | `bigscreen/photo` | URL vagy base64 | admin | **igen** |
 | `bigscreen/video` | videó URL vagy fájlnév | admin | **igen** |

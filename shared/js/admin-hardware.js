@@ -6,6 +6,9 @@
     motion: "Mozgás",
     door_open: "Ajtó nyitva",
     door_closed: "Ajtó zárva",
+    door: "Ajtó",
+    button: "Gomb",
+    ping: "Ping",
     test: "Teszt",
   };
 
@@ -113,9 +116,10 @@
     async function refresh() {
       try {
         const res = await fetch("/api/state.php", { cache: "no-store" });
+        if (!res.ok) throw new Error("state.php " + res.status);
         render(await res.json(), els);
       } catch (e) {
-        if (els.conn) els.conn.textContent = String(e.message || e);
+        if (els.sync) els.sync.textContent = "Hiba: " + String(e.message || e);
       }
     }
 
@@ -138,7 +142,7 @@
       void postEvent("esp32-zone-a", "motion", "Operátori teszt").catch((e) => toast(String(e), false)),
     );
     opts.clearLogBtn?.addEventListener("click", () => {
-      if (!global.confirm("Törlöd a hardver eseménynaplót?")) return;
+      if (!global.confirm("Törlöd a hardver eseménynaplót és az utolsó eseményt?")) return;
       void patchState({ hardware: { event_log: [], last_sensor_event: null } })
         .then(() => {
           toast("Hardver napló törölve.", true);
