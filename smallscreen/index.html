@@ -4,12 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Nanoportal — érintőképernyő</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700&family=Rajdhani:wght@500;600;700&display=swap"
-      rel="stylesheet"
-    />
+    <link rel="stylesheet" href="/shared/css/theme.css" />
+    <link rel="stylesheet" href="/shared/css/components.css" />
     <style>
       *,
       *::before,
@@ -23,64 +19,45 @@
         width: 100%;
         height: 100%;
         overflow: hidden;
-        background: #000;
-      }
-
-      body {
+        background: var(--void-900);
         pointer-events: none;
         user-select: none;
         -webkit-user-select: none;
         touch-action: manipulation;
       }
 
+      /* ponytail: kiosk full-bleed, no HUD grid from theme.css */
+      body::before {
+        display: none;
+      }
+
       .layer {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
+        position: fixed;
+        inset: 0;
+        display: none;
         z-index: 0;
-        visibility: hidden;
-        pointer-events: none;
         overflow: hidden;
+        background: var(--void-900);
+        pointer-events: none;
       }
 
       .layer.is-active {
-        z-index: 999;
-        visibility: visible;
-      }
-
-      .layer-touch-locked.is-active {
-        pointer-events: none;
+        display: block;
+        z-index: 1;
       }
 
       #layer-quiz.is-active {
         pointer-events: auto;
       }
 
-      .touch-blocker {
-        position: absolute;
-        inset: 0;
-        z-index: 10;
-        pointer-events: auto;
-        background: transparent;
-      }
-
-      #layer-photo-img {
-        display: block;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        background: #051018;
-      }
-
-      #layer-video,
+      #layer-photo-img,
+      #layer-video-el,
       #layer-video-mjpeg {
         display: block;
         width: 100%;
         height: 100%;
         object-fit: cover;
-        background: #000;
+        background: var(--void-900);
       }
 
       #layer-video-mjpeg {
@@ -88,7 +65,7 @@
         inset: 0;
       }
 
-      #layer-video[hidden],
+      #layer-video-el[hidden],
       #layer-video-mjpeg[hidden] {
         display: none !important;
       }
@@ -96,86 +73,65 @@
       #layer-quiz {
         display: flex;
         flex-direction: column;
-        background: linear-gradient(180deg, #051018 0%, #0a1a28 100%);
-        color: #e8f4ff;
-        font-family: Rajdhani, system-ui, sans-serif;
         padding: clamp(1rem, 3vw, 2rem);
+        color: var(--text-primary);
       }
 
       .quiz-header {
         flex-shrink: 0;
-        margin-bottom: 1rem;
-      }
-
-      .quiz-kicker {
-        margin: 0 0 0.35rem;
-        font-family: Orbitron, sans-serif;
-        font-size: clamp(0.7rem, 1.8vw, 0.9rem);
-        letter-spacing: 0.12em;
-        color: rgba(0, 191, 255, 0.85);
+        margin-bottom: var(--space-4);
       }
 
       .quiz-progress {
-        margin: 0;
-        font-size: clamp(1rem, 2.5vw, 1.25rem);
-        color: rgba(255, 255, 255, 0.55);
+        margin: var(--space-2) 0 0;
+        font-size: var(--text-lg);
+        color: var(--text-muted);
       }
 
       #quiz-question {
-        margin: 0 0 1.25rem;
-        font-size: clamp(1.35rem, 3.5vw, 2rem);
-        font-weight: 700;
-        line-height: 1.25;
+        margin: 0 0 var(--space-4);
       }
 
       #quiz-answers {
         display: flex;
         flex-direction: column;
-        gap: 0.75rem;
+        gap: var(--space-3);
         flex: 1;
         overflow-y: auto;
       }
 
       .quiz-answer {
         min-height: 60px;
-        padding: 0.85rem 1.1rem;
-        border: 2px solid rgba(0, 191, 255, 0.45);
-        border-radius: 10px;
-        background: rgba(0, 40, 60, 0.55);
-        color: #e8f4ff;
-        font-family: Rajdhani, sans-serif;
-        font-size: clamp(1.1rem, 2.8vw, 1.45rem);
-        font-weight: 600;
+        width: 100%;
         text-align: left;
-        cursor: pointer;
-        transition: background 0.15s ease, border-color 0.15s ease;
-      }
-
-      .quiz-answer:active:not(:disabled) {
-        background: rgba(0, 191, 255, 0.2);
-      }
-
-      .quiz-answer:disabled {
-        cursor: default;
-        opacity: 0.95;
+        font-size: clamp(1.1rem, 2.8vw, 1.45rem);
       }
 
       .quiz-answer.is-correct {
-        border-color: #3ddc84;
-        background: rgba(61, 220, 132, 0.25);
-        color: #d8ffe8;
+        border-color: var(--success);
+        background: color-mix(in srgb, var(--success) 22%, transparent);
+        color: var(--text-bright);
       }
 
       .quiz-answer.is-wrong {
-        border-color: #ff5c7a;
-        background: rgba(255, 92, 122, 0.22);
-        color: #ffe8ec;
+        border-color: var(--danger);
+        background: color-mix(in srgb, var(--danger) 18%, transparent);
+        color: var(--text-bright);
       }
 
       #quiz-play {
         flex: 1;
         display: flex;
         flex-direction: column;
+      }
+
+      #quiz-next {
+        margin-top: var(--space-4);
+        align-self: stretch;
+      }
+
+      #quiz-next[hidden] {
+        display: none !important;
       }
 
       #quiz-result {
@@ -185,7 +141,7 @@
         align-items: center;
         justify-content: center;
         text-align: center;
-        gap: 1rem;
+        gap: var(--space-4);
       }
 
       #quiz-result.is-visible {
@@ -198,26 +154,37 @@
 
       .quiz-result-title {
         margin: 0;
-        font-family: Orbitron, sans-serif;
+        font-family: var(--font-display);
         font-size: clamp(1.5rem, 4vw, 2.5rem);
-        color: #00bfff;
+        color: var(--cyan-400);
       }
 
       .quiz-result-score {
         margin: 0;
+        font-family: var(--font-display);
         font-size: clamp(2rem, 6vw, 3.5rem);
         font-weight: 700;
+        color: var(--text-bright);
       }
 
-      #smallscreen-status {
+      #mqtt-status {
         position: fixed;
-        right: 0.75rem;
-        bottom: 0.5rem;
+        right: var(--space-3);
+        bottom: var(--space-2);
         z-index: 1000;
-        font-family: "Roboto Mono", ui-monospace, monospace;
-        font-size: 0.65rem;
-        color: rgba(255, 255, 255, 0.35);
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+        opacity: 0.5;
+        color: var(--text-muted);
         pointer-events: none;
+      }
+
+      #mqtt-status.is-connected {
+        color: var(--cyan-400);
+      }
+
+      #mqtt-status.is-error {
+        color: var(--danger);
       }
     </style>
     <script src="/shared/js/media-url.js"></script>
@@ -225,25 +192,24 @@
     <script src="/shared/js/mqtt-client.js"></script>
   </head>
   <body>
-    <section id="layer-photo" class="layer layer-touch-locked is-active" aria-hidden="false">
+    <section id="layer-photo" class="layer is-active" aria-hidden="false">
       <img id="layer-photo-img" src="/shared/assets/images/small-idle.svg" alt="Várakozás" />
-      <div class="touch-blocker" aria-hidden="true"></div>
     </section>
 
-    <section id="layer-video-wrap" class="layer layer-touch-locked" aria-hidden="true">
-      <video id="layer-video" playsinline muted></video>
+    <section id="layer-video" class="layer" aria-hidden="true">
+      <video id="layer-video-el" autoplay playsinline muted></video>
       <img id="layer-video-mjpeg" alt="" hidden />
-      <div class="touch-blocker" aria-hidden="true"></div>
     </section>
 
     <section id="layer-quiz" class="layer" aria-hidden="true">
       <div id="quiz-play">
         <header class="quiz-header">
-          <p class="quiz-kicker">NANOPORTAL // KVÍZ</p>
+          <p class="hud-label">Nanoportal // kvíz</p>
           <p class="quiz-progress" id="quiz-progress">1 / 1</p>
         </header>
-        <h2 id="quiz-question">Várakozás kérdésekre…</h2>
+        <h2 id="quiz-question" class="text-hero">Várakozás kérdésekre…</h2>
         <div id="quiz-answers"></div>
+        <button type="button" id="quiz-next" class="btn-neon btn-cta" hidden>Következő</button>
       </div>
       <div id="quiz-result" aria-live="polite">
         <h2 class="quiz-result-title">Eredmény</h2>
@@ -251,25 +217,26 @@
       </div>
     </section>
 
-    <p id="smallscreen-status" aria-live="polite">MQTT // …</p>
+    <div id="mqtt-status" aria-live="polite">●</div>
 
     <script>
       (function () {
         const LAYERS = {
           photo: document.getElementById("layer-photo"),
-          video: document.getElementById("layer-video-wrap"),
+          video: document.getElementById("layer-video"),
           quiz: document.getElementById("layer-quiz"),
         };
         const photoImg = document.getElementById("layer-photo-img");
-        const videoEl = document.getElementById("layer-video");
+        const videoEl = document.getElementById("layer-video-el");
         const mjpegEl = document.getElementById("layer-video-mjpeg");
         const quizPlay = document.getElementById("quiz-play");
         const quizResult = document.getElementById("quiz-result");
         const quizQuestion = document.getElementById("quiz-question");
         const quizAnswers = document.getElementById("quiz-answers");
         const quizProgress = document.getElementById("quiz-progress");
+        const quizNext = document.getElementById("quiz-next");
         const quizResultScore = document.getElementById("quiz-result-score");
-        const statusEl = document.getElementById("smallscreen-status");
+        const statusEl = document.getElementById("mqtt-status");
 
         const TOPICS = [
           "smallscreen/layer",
@@ -278,20 +245,20 @@
           "smallscreen/quiz",
         ];
 
-        const ADVANCE_MS = 1500;
-
         let activeLayer = "photo";
         let mqttClient = null;
         let quizQuestions = [];
         let questionIndex = 0;
         let score = 0;
-        let quizLocked = false;
-        let advanceTimer = null;
+        let awaitingNext = false;
 
         const Mqtt = window.NanoportalMqtt;
 
-        function setStatus(text) {
-          if (statusEl) statusEl.textContent = text;
+        function setMqttStatus(state) {
+          if (!statusEl) return;
+          statusEl.classList.remove("is-connected", "is-error");
+          if (state === "connected") statusEl.classList.add("is-connected");
+          else if (state === "error") statusEl.classList.add("is-error");
         }
 
         function resolveImageSrc(raw) {
@@ -304,13 +271,11 @@
           return "data:image/jpeg;base64," + text;
         }
 
-        function resolveMediaUrl(raw) {
-          const text = String(raw ?? "").trim();
-          if (!text) return "";
-          if (text.startsWith("http://") || text.startsWith("https://") || text.startsWith("/")) {
-            return text;
-          }
-          return "/shared/assets/video/" + encodeURIComponent(text);
+        function resolveVideoUrl(raw) {
+          const t = String(raw ?? "").trim();
+          if (!t) return "";
+          if (/^https?:\/\//.test(t) || t.startsWith("/")) return t;
+          return "/shared/assets/video/" + encodeURIComponent(t);
         }
 
         function parseQuizJson(raw) {
@@ -339,24 +304,22 @@
           return out;
         }
 
-        function clearAdvanceTimer() {
-          if (advanceTimer != null) {
-            window.clearTimeout(advanceTimer);
-            advanceTimer = null;
-          }
+        function hideQuizNext() {
+          awaitingNext = false;
+          if (quizNext) quizNext.hidden = true;
         }
 
         function resetQuizState() {
-          clearAdvanceTimer();
           questionIndex = 0;
           score = 0;
-          quizLocked = false;
+          hideQuizNext();
           if (quizPlay) quizPlay.classList.remove("is-hidden");
           if (quizResult) quizResult.classList.remove("is-visible");
         }
 
         function showQuizResult() {
           const total = quizQuestions.length;
+          hideQuizNext();
           if (quizPlay) quizPlay.classList.add("is-hidden");
           if (quizResult) quizResult.classList.add("is-visible");
           if (quizResultScore) {
@@ -367,13 +330,13 @@
               mqttClient,
               "smallscreen/quiz/result",
               JSON.stringify({ score: score, total: total }),
+              { retain: false },
             ).catch(function () {});
           }
         }
 
         function renderQuestion() {
-          clearAdvanceTimer();
-          quizLocked = false;
+          hideQuizNext();
 
           if (!quizQuestions.length) {
             if (quizQuestion) quizQuestion.textContent = "Nincs betöltött kérdés.";
@@ -397,7 +360,7 @@
             q.answers.forEach(function (answer, idx) {
               const btn = document.createElement("button");
               btn.type = "button";
-              btn.className = "quiz-answer";
+              btn.className = "btn-neon quiz-answer";
               btn.textContent = answer.text;
               btn.dataset.index = String(idx);
               btn.addEventListener("click", function () {
@@ -409,39 +372,48 @@
         }
 
         function onAnswerTap(answerIndex) {
-          if (quizLocked || activeLayer !== "quiz") return;
+          if (awaitingNext || activeLayer !== "quiz") return;
           if (!quizQuestions.length || questionIndex >= quizQuestions.length) return;
 
-          quizLocked = true;
           const q = quizQuestions[questionIndex];
           const chosen = q.answers[answerIndex];
-          if (!chosen) {
-            quizLocked = false;
+          if (!chosen) return;
+
+          const buttons = quizAnswers ? quizAnswers.querySelectorAll(".quiz-answer") : [];
+
+          if (!chosen.correct) {
+            const btn = buttons[answerIndex];
+            if (btn) btn.classList.add("is-wrong");
             return;
           }
 
-          if (chosen.correct) score += 1;
-
-          const buttons = quizAnswers ? quizAnswers.querySelectorAll(".quiz-answer") : [];
+          score += 1;
           buttons.forEach(function (btn, i) {
             btn.disabled = true;
-            if (i === answerIndex) {
-              btn.classList.add(chosen.correct ? "is-correct" : "is-wrong");
-            }
-            if (!chosen.correct && q.answers[i] && q.answers[i].correct) {
-              btn.classList.add("is-correct");
-            }
+            if (i === answerIndex) btn.classList.add("is-correct");
           });
 
-          advanceTimer = window.setTimeout(function () {
-            questionIndex += 1;
-            renderQuestion();
-          }, ADVANCE_MS);
+          awaitingNext = true;
+          if (quizNext) quizNext.hidden = false;
+        }
+
+        function onQuizNext() {
+          if (!awaitingNext || activeLayer !== "quiz") return;
+          questionIndex += 1;
+          renderQuestion();
+        }
+
+        if (quizNext) {
+          quizNext.addEventListener("click", onQuizNext);
         }
 
         function startQuiz() {
           resetQuizState();
           renderQuestion();
+        }
+
+        function isMjpegUrl(url) {
+          return window.NanoportalMediaUrl && window.NanoportalMediaUrl.isMjpegUrl(url);
         }
 
         function resetVideo() {
@@ -452,18 +424,12 @@
           } catch (_) {}
         }
 
-        function isMjpegUrl(url) {
-          return window.NanoportalMediaUrl && window.NanoportalMediaUrl.isMjpegUrl(url);
-        }
-
         function playVideo() {
           if (mjpegEl && !mjpegEl.hidden) return;
           if (!videoEl || !videoEl.src) return;
           const p = videoEl.play();
           if (p && typeof p.catch === "function") {
-            p.catch(function (err) {
-              setStatus("VIDEO // " + String(err.message || err));
-            });
+            p.catch(function () {});
           }
         }
 
@@ -480,7 +446,7 @@
         }
 
         function setVideoSrc(raw) {
-          const src = resolveMediaUrl(raw);
+          const src = resolveVideoUrl(raw);
           if (!src) {
             if (videoEl) {
               videoEl.pause();
@@ -503,9 +469,6 @@
             if (mjpegEl) {
               mjpegEl.hidden = false;
               mjpegEl.src = src + (src.includes("?") ? "&" : "?") + "_t=" + Date.now();
-              mjpegEl.onerror = function () {
-                setStatus("MJPEG // betöltés sikertelen");
-              };
             }
           } else {
             if (mjpegEl) {
@@ -529,7 +492,7 @@
             resetVideo();
           }
           if (activeLayer === "quiz" && next !== "quiz") {
-            clearAdvanceTimer();
+            hideQuizNext();
           }
 
           activeLayer = next;
@@ -540,22 +503,10 @@
             const on = key === next;
             el.classList.toggle("is-active", on);
             el.setAttribute("aria-hidden", on ? "false" : "true");
-            el.style.zIndex = on ? "999" : "0";
           }
 
-          if (next === "video") {
-            playVideo();
-          }
-          if (next === "quiz") {
-            startQuiz();
-          }
-
-          setStatus(
-            "MQTT // " +
-              next.toUpperCase() +
-              " // " +
-              (mqttClient && mqttClient.connected ? "OK" : "…"),
-          );
+          if (next === "video") playVideo();
+          if (next === "quiz") startQuiz();
         }
 
         function handleTopic(topic, text) {
@@ -580,31 +531,13 @@
         }
 
         if (!Mqtt) {
-          setStatus("MQTT // ERROR // mqtt-client.js not loaded");
+          setMqttStatus("error");
         } else {
           mqttClient = Mqtt.connect({
             topics: TOPICS,
             onMessage: handleTopic,
-            onStatus: function (state, detail) {
-              switch (state) {
-                case "connecting":
-                  setStatus("MQTT // CONNECTING // " + detail);
-                  break;
-                case "connected":
-                  setStatus("MQTT // CONNECTED // " + activeLayer.toUpperCase());
-                  break;
-                case "reconnecting":
-                  setStatus("MQTT // RECONNECTING");
-                  break;
-                case "disconnected":
-                  setStatus("MQTT // DISCONNECTED");
-                  break;
-                case "error":
-                  setStatus("MQTT // ERROR // " + detail);
-                  break;
-                default:
-                  break;
-              }
+            onStatus: function (state) {
+              setMqttStatus(state === "connected" ? "connected" : state === "error" ? "error" : "");
             },
           });
         }

@@ -4,6 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Nanoportal — nagy kijelző</title>
+    <link rel="stylesheet" href="/shared/css/theme.css" />
+    <link rel="stylesheet" href="/shared/css/components.css" />
     <style>
       *,
       *::before,
@@ -17,46 +19,38 @@
         width: 100%;
         height: 100%;
         overflow: hidden;
-        background: #000;
-      }
-
-      body {
+        background: var(--void-900);
         pointer-events: none;
         user-select: none;
       }
 
+      /* ponytail: kiosk full-bleed, no HUD grid from theme.css */
+      body::before {
+        display: none;
+      }
+
       .layer {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
+        position: fixed;
+        inset: 0;
+        display: none;
         z-index: 0;
-        visibility: hidden;
-        pointer-events: none;
         overflow: hidden;
+        background: var(--void-900);
       }
 
       .layer.is-active {
-        z-index: 999;
-        visibility: visible;
-      }
-
-      #layer-photo-img {
         display: block;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        background: #051018;
+        z-index: 1;
       }
 
-      #layer-video,
+      #layer-photo-img,
+      #layer-video-el,
       #layer-video-mjpeg {
         display: block;
         width: 100%;
         height: 100%;
         object-fit: cover;
-        background: #000;
+        background: var(--void-900);
       }
 
       #layer-video-mjpeg {
@@ -64,58 +58,102 @@
         inset: 0;
       }
 
-      #layer-video[hidden],
+      #layer-video-el[hidden],
       #layer-video-mjpeg[hidden] {
         display: none !important;
       }
 
-      #layer-celebration-bg {
-        position: absolute;
-        inset: 0;
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
+      #layer-celebration {
+        --cycle-duration: 3s;
       }
 
-      .banner-photo {
+      .celebration-bg {
         position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .celebration-bg[hidden] {
+        display: none !important;
+      }
+
+      .celebration-slot {
+        position: absolute;
+        inset: 0;
+      }
+
+      .celebration-slot[hidden] {
+        display: none !important;
+      }
+
+      .celebration-player {
+        position: absolute;
+        inset: 0;
+        opacity: 0;
+        animation: player-show var(--cycle-duration) linear infinite;
+      }
+
+      .celebration-player.is-paused {
+        animation: none;
+        opacity: 0;
+      }
+
+      @keyframes player-show {
+        0% {
+          opacity: 0;
+        }
+        10% {
+          opacity: 1;
+        }
+        85% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+
+      .celebration-photo {
+        position: absolute;
+        display: block;
         height: auto;
         aspect-ratio: 3 / 4;
         object-fit: cover;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
-        border: 3px solid rgba(255, 255, 255, 0.9);
-        transition: opacity 0.3s ease;
       }
 
-      .banner-photo.is-fading {
-        opacity: 0;
-      }
-
-      .banner-name {
+      .celebration-name {
         position: absolute;
+        margin: 0;
         text-align: center;
-        font-family: Orbitron, Rajdhani, sans-serif;
-        font-weight: 800;
-        color: #1a1a1a;
+        font-family: var(--font-display);
+        font-size: clamp(1.4rem, 3.2vw, 3rem);
+        font-weight: 700;
+        color: var(--cyan-400);
         text-transform: uppercase;
-        letter-spacing: 0.06em;
+        letter-spacing: var(--tracking-hud);
         line-height: 1.1;
-        transition: opacity 0.3s ease;
       }
 
-      .banner-name.is-fading {
-        opacity: 0;
-      }
-
-      #bigscreen-status {
+      #mqtt-status {
         position: fixed;
-        left: 0.75rem;
-        bottom: 0.5rem;
+        right: var(--space-3);
+        bottom: var(--space-2);
         z-index: 1000;
-        font-family: "Roboto Mono", ui-monospace, monospace;
-        font-size: 0.65rem;
-        color: rgba(255, 255, 255, 0.35);
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+        opacity: 0.5;
+        color: var(--text-muted);
         pointer-events: none;
+      }
+
+      #mqtt-status.is-connected {
+        color: var(--cyan-400);
+      }
+
+      #mqtt-status.is-error {
+        color: var(--danger);
       }
     </style>
     <script src="/shared/js/media-url.js"></script>
@@ -127,75 +165,41 @@
       <img id="layer-photo-img" alt="" />
     </section>
 
-    <section id="layer-video-wrap" class="layer" aria-hidden="true">
-      <video id="layer-video" playsinline muted></video>
+    <section id="layer-video" class="layer" aria-hidden="true">
+      <video id="layer-video-el" autoplay loop muted playsinline></video>
       <img id="layer-video-mjpeg" alt="" hidden />
     </section>
 
     <section id="layer-celebration" class="layer" aria-hidden="true">
-      <div id="layer-celebration-bg" aria-hidden="true"></div>
-      <img id="banner-photo" class="banner-photo" alt="" />
-      <p id="banner-name" class="banner-name"></p>
+      <img id="celebration-bg" class="celebration-bg" alt="" hidden />
+      <div id="celebration-slot" class="celebration-slot" hidden>
+        <div id="celebration-player" class="celebration-player is-paused">
+          <img id="celebration-photo" class="celebration-photo" alt="" />
+          <p id="celebration-name" class="celebration-name"></p>
+        </div>
+      </div>
     </section>
 
-    <p id="bigscreen-status" aria-live="polite">MQTT // …</p>
+    <div id="mqtt-status" aria-live="polite">●</div>
 
     <script>
       (function () {
         const LAYERS = {
           photo: document.getElementById("layer-photo"),
-          video: document.getElementById("layer-video-wrap"),
+          video: document.getElementById("layer-video"),
           celebration: document.getElementById("layer-celebration"),
         };
         const photoImg = document.getElementById("layer-photo-img");
-        const videoEl = document.getElementById("layer-video");
+        const videoEl = document.getElementById("layer-video-el");
         const mjpegEl = document.getElementById("layer-video-mjpeg");
-        const celebrationBg = document.getElementById("layer-celebration-bg");
-        const bannerPhoto = document.getElementById("banner-photo");
-        const bannerName = document.getElementById("banner-name");
-        const statusEl = document.getElementById("bigscreen-status");
+        const statusEl = document.getElementById("mqtt-status");
+        const celebrationLayer = document.getElementById("layer-celebration");
+        const celebrationBg = document.getElementById("celebration-bg");
+        const celebrationSlot = document.getElementById("celebration-slot");
+        const celebrationPlayer = document.getElementById("celebration-player");
+        const celebrationPhoto = document.getElementById("celebration-photo");
+        const celebrationName = document.getElementById("celebration-name");
 
-        const TEMPLATES = {
-          crowd_europe: {
-            background: "/shared/assets/celebration/crowd-europe.png",
-            photo: {
-              left: "39%",
-              top: "24%",
-              width: "19%",
-              transform: "rotate(-4deg) skewY(-0.5deg)",
-            },
-            name: {
-              left: "34%",
-              top: "47%",
-              width: "32%",
-              transform: "rotate(-4deg)",
-              fontSize: "clamp(1.4rem, 3.2vw, 3rem)",
-              fontWeight: "800",
-              color: "#1a1a1a",
-            },
-          },
-          crowd_nyc: {
-            background: "/shared/assets/celebration/crowd-nyc.png",
-            photo: {
-              left: "41%",
-              top: "22%",
-              width: "17%",
-              transform: "rotate(3deg) skewY(0.5deg)",
-            },
-            name: {
-              left: "36%",
-              top: "44%",
-              width: "30%",
-              transform: "rotate(3deg)",
-              fontSize: "clamp(1.4rem, 3.2vw, 3rem)",
-              fontWeight: "800",
-              color: "#1a1a1a",
-            },
-          },
-        };
-
-        const CELEBRATION_DURATION_MS = 9000;
-        const DEFAULT_CHEER = "/shared/assets/audio/ambient_loop_placeholder.mp3";
         const TOPICS = [
           "bigscreen/layer",
           "bigscreen/photo",
@@ -208,19 +212,35 @@
           "bigscreen/celebration/cheer",
         ];
 
+        const CELEBRATION_TOTAL_SEC = 9;
+        const PHOTO_PLACEHOLDER = "/shared/assets/images/poster_placeholder.svg";
+
+        const TEMPLATES = {
+          crowd_europe: {
+            photo: { left: "39%", top: "24%", width: "19%" },
+            name: { left: "34%", top: "47%", width: "32%" },
+          },
+          crowd_nyc: {
+            photo: { left: "41%", top: "22%", width: "17%" },
+            name: { left: "36%", top: "44%", width: "30%" },
+          },
+        };
+
         let activeLayer = "photo";
         let players = [];
-        let celebrationTemplateId = "crowd_europe";
-        let cheerUrl = DEFAULT_CHEER;
-        let carouselTimer = null;
+        let backgroundId = "";
+        let cheerUrl = "";
         let carouselIndex = 0;
         let cheerAudio = null;
-        let mqttClient = null;
+        let cheerStarted = false;
 
         const Mqtt = window.NanoportalMqtt;
 
-        function setStatus(text) {
-          if (statusEl) statusEl.textContent = text;
+        function setMqttStatus(state) {
+          if (!statusEl) return;
+          statusEl.classList.remove("is-connected", "is-error");
+          if (state === "connected") statusEl.classList.add("is-connected");
+          else if (state === "error") statusEl.classList.add("is-error");
         }
 
         function resolveImageSrc(raw) {
@@ -233,28 +253,37 @@
           return "data:image/jpeg;base64," + text;
         }
 
-        function resolveMediaUrl(raw) {
+        function resolveVideoUrl(raw) {
+          const t = String(raw ?? "").trim();
+          if (!t) return "";
+          if (/^https?:\/\//.test(t) || t.startsWith("/")) return t;
+          return "/shared/assets/video/" + encodeURIComponent(t);
+        }
+
+        function normalizeBackgroundId(raw) {
+          const id = String(raw ?? "").trim().toLowerCase();
+          if (!id) return "";
+          if (id === "crowd_nyc" || id === "nyc") return "crowd_nyc";
+          return "crowd_europe";
+        }
+
+        function resolveBackgroundSrc(id) {
+          if (!id) return "";
+          return "/shared/assets/images/" + id + ".jpg";
+        }
+
+        function fallbackBackgroundSrc(id) {
+          if (id === "crowd_nyc") return "/shared/assets/celebration/crowd-nyc.png";
+          return "/shared/assets/celebration/crowd-europe.png";
+        }
+
+        function resolveCheerUrl(raw) {
           const text = String(raw ?? "").trim();
           if (!text) return "";
           if (text.startsWith("http://") || text.startsWith("https://") || text.startsWith("/")) {
             return text;
           }
-          return "/shared/assets/video/" + encodeURIComponent(text);
-        }
-
-        function resolveCheerUrl(raw) {
-          const text = String(raw ?? "").trim();
-          if (!text) return DEFAULT_CHEER;
-          if (text.startsWith("http://") || text.startsWith("https://") || text.startsWith("/")) {
-            return text;
-          }
           return "/shared/assets/audio/" + encodeURIComponent(text);
-        }
-
-        function normalizeTemplateId(raw) {
-          const id = String(raw ?? "").trim().toLowerCase();
-          if (id === "crowd_nyc" || id === "nyc") return "crowd_nyc";
-          return "crowd_europe";
         }
 
         function parsePlayersJson(raw) {
@@ -273,112 +302,153 @@
             if (!photo && !name) continue;
             out.push({ photo, name: name || "VENDÉG" });
           }
-          if (out.length < 2) {
-            while (out.length < 2 && out.length > 0) {
-              out.push({ ...out[0] });
-            }
-          }
           return out.slice(0, 6);
         }
 
-        function stopCarousel() {
-          if (carouselTimer != null) {
-            window.clearInterval(carouselTimer);
-            carouselTimer = null;
+        function activeTemplateId() {
+          return backgroundId === "crowd_nyc" ? "crowd_nyc" : "crowd_europe";
+        }
+
+        function applyTemplateLayout() {
+          const template = TEMPLATES[activeTemplateId()] || TEMPLATES.crowd_europe;
+          const photo = template.photo || {};
+          const name = template.name || {};
+          if (celebrationPhoto) {
+            celebrationPhoto.style.left = photo.left || "38%";
+            celebrationPhoto.style.top = photo.top || "24%";
+            celebrationPhoto.style.width = photo.width || "20%";
           }
+          if (celebrationName) {
+            celebrationName.style.left = name.left || "34%";
+            celebrationName.style.top = name.top || "47%";
+            celebrationName.style.width = name.width || "32%";
+          }
+        }
+
+        function randomTransform(el) {
+          if (!el) return;
+          const rotate = (Math.random() * 8 - 4).toFixed(1);
+          const scale = (0.95 + Math.random() * 0.1).toFixed(2);
+          el.style.transform = "rotate(" + rotate + "deg) scale(" + scale + ")";
+        }
+
+        function showPlayer(index) {
+          if (!players.length || !celebrationPhoto || !celebrationName) return;
+          const player = players[index % players.length];
+          celebrationPhoto.src = player.photo || PHOTO_PLACEHOLDER;
+          celebrationPhoto.alt = player.name;
+          celebrationPhoto.onerror = function () {
+            celebrationPhoto.onerror = null;
+            celebrationPhoto.src = PHOTO_PLACEHOLDER;
+          };
+          celebrationName.textContent = player.name;
+        }
+
+        function stopCheer() {
           if (cheerAudio) {
             cheerAudio.pause();
             cheerAudio = null;
           }
-          carouselIndex = 0;
-        }
-
-        function applyTemplateStyles(template) {
-          const photo = template.photo || {};
-          const name = template.name || {};
-          if (celebrationBg) {
-            celebrationBg.style.backgroundImage = "url(" + template.background + ")";
-          }
-          if (bannerPhoto) {
-            bannerPhoto.style.left = photo.left || "38%";
-            bannerPhoto.style.top = photo.top || "30%";
-            bannerPhoto.style.width = photo.width || "24%";
-            bannerPhoto.style.transform = photo.transform || "none";
-          }
-          if (bannerName) {
-            bannerName.style.left = name.left || "36%";
-            bannerName.style.top = name.top || "56%";
-            bannerName.style.width = name.width || "28%";
-            bannerName.style.transform = name.transform || "none";
-            bannerName.style.fontSize = name.fontSize || "clamp(1rem, 3vw, 2rem)";
-            bannerName.style.fontWeight = name.fontWeight || "800";
-            bannerName.style.color = name.color || "#1a1a1a";
-          }
-        }
-
-        function showCelebrationPlayer(index) {
-          const list = players.length
-            ? players
-            : [{ photo: "", name: "VENDÉG" }];
-          const player = list[index % list.length];
-          const template = TEMPLATES[celebrationTemplateId] || TEMPLATES.crowd_europe;
-          applyTemplateStyles(template);
-
-          const fadeSwap = function () {
-            if (bannerPhoto) {
-              bannerPhoto.classList.add("is-fading");
-              bannerName.classList.add("is-fading");
-            }
-            window.setTimeout(function () {
-              if (bannerPhoto) {
-                bannerPhoto.src = player.photo || "/shared/assets/images/poster_placeholder.svg";
-                bannerPhoto.alt = player.name;
-                bannerPhoto.classList.remove("is-fading");
-              }
-              if (bannerName) {
-                bannerName.textContent = player.name;
-                bannerName.classList.remove("is-fading");
-              }
-            }, 150);
-          };
-
-          if (bannerPhoto && bannerPhoto.src) {
-            fadeSwap();
-          } else {
-            if (bannerPhoto) {
-              bannerPhoto.src = player.photo || "/shared/assets/images/poster_placeholder.svg";
-              bannerPhoto.alt = player.name;
-            }
-            if (bannerName) bannerName.textContent = player.name;
-          }
+          cheerStarted = false;
         }
 
         function startCheer() {
-          if (cheerAudio) {
-            cheerAudio.pause();
-            cheerAudio = null;
-          }
+          stopCheer();
+          if (!cheerUrl) return;
           cheerAudio = new Audio(cheerUrl);
           cheerAudio.loop = true;
-          cheerAudio.play().catch(function (err) {
-            setStatus("CHEER // " + String(err.message || err));
-          });
+          cheerStarted = true;
+          cheerAudio.play().catch(function () {});
         }
 
-        function startCelebrationCarousel() {
-          stopCarousel();
-          const list = players.length
-            ? players
-            : [{ photo: "", name: "VENDÉG" }];
-          const perMs = Math.max(1000, Math.floor(CELEBRATION_DURATION_MS / list.length));
-          showCelebrationPlayer(0);
-          startCheer();
-          if (list.length > 1) {
-            carouselTimer = window.setInterval(function () {
-              carouselIndex = (carouselIndex + 1) % list.length;
-              showCelebrationPlayer(carouselIndex);
-            }, perMs);
+        function updateBackground() {
+          if (!celebrationBg) return;
+          if (!backgroundId) {
+            celebrationBg.hidden = true;
+            celebrationBg.removeAttribute("src");
+            return;
           }
+          celebrationBg.hidden = false;
+          celebrationBg.src = resolveBackgroundSrc(backgroundId);
+          celebrationBg.onerror = function () {
+            celebrationBg.onerror = null;
+            celebrationBg.src = fallbackBackgroundSrc(backgroundId);
+          };
+        }
+
+        function pausePlayerAnimation() {
+          if (!celebrationPlayer) return;
+          celebrationPlayer.classList.add("is-paused");
+        }
+
+        function resumePlayerAnimation() {
+          if (!celebrationPlayer) return;
+          celebrationPlayer.classList.remove("is-paused");
+          celebrationPlayer.style.animation = "none";
+          void celebrationPlayer.offsetHeight;
+          celebrationPlayer.style.animation = "";
+        }
+
+        function stopCelebration() {
+          pausePlayerAnimation();
+          stopCheer();
+          carouselIndex = 0;
+          if (celebrationSlot) celebrationSlot.hidden = true;
+        }
+
+        function rebuildCelebration() {
+          stopCelebration();
+          if (!players.length) {
+            if (celebrationBg) celebrationBg.hidden = true;
+            return;
+          }
+
+          updateBackground();
+          applyTemplateLayout();
+
+          const cycleSec = (CELEBRATION_TOTAL_SEC / players.length).toFixed(2);
+          if (celebrationLayer) {
+            celebrationLayer.style.setProperty("--cycle-duration", cycleSec + "s");
+          }
+
+          carouselIndex = 0;
+          showPlayer(0);
+          randomTransform(celebrationPlayer);
+
+          if (celebrationSlot) celebrationSlot.hidden = false;
+          resumePlayerAnimation();
+        }
+
+        function startCelebration() {
+          if (!players.length) {
+            stopCelebration();
+            if (celebrationBg) celebrationBg.hidden = true;
+            return;
+          }
+          rebuildCelebration();
+        }
+
+        function onPlayerAnimationStart(e) {
+          if (!e || e.animationName !== "player-show") return;
+          if (!players.length) return;
+          if (!cheerStarted) startCheer();
+        }
+
+        function onPlayerAnimationIteration(e) {
+          if (!e || e.animationName !== "player-show") return;
+          if (!players.length) return;
+          carouselIndex = (carouselIndex + 1) % players.length;
+          showPlayer(carouselIndex);
+          randomTransform(celebrationPlayer);
+        }
+
+        if (celebrationPlayer) {
+          celebrationPlayer.addEventListener("animationstart", onPlayerAnimationStart);
+          celebrationPlayer.addEventListener("animationiteration", onPlayerAnimationIteration);
+        }
+
+        function isMjpegUrl(url) {
+          return window.NanoportalMediaUrl && window.NanoportalMediaUrl.isMjpegUrl(url);
         }
 
         function resetVideo() {
@@ -389,24 +459,17 @@
           } catch (_) {}
         }
 
-        function isMjpegUrl(url) {
-          return window.NanoportalMediaUrl && window.NanoportalMediaUrl.isMjpegUrl(url);
-        }
-
         function playVideo() {
           if (mjpegEl && !mjpegEl.hidden) return;
           if (!videoEl || !videoEl.src) return;
           const p = videoEl.play();
           if (p && typeof p.catch === "function") {
-            p.catch(function (err) {
-              setStatus("VIDEO // " + String(err.message || err));
-            });
+            p.catch(function () {});
           }
         }
 
         function pauseVideo() {
-          if (!videoEl) return;
-          videoEl.pause();
+          if (videoEl) videoEl.pause();
         }
 
         function setPhotoSrc(raw) {
@@ -422,7 +485,7 @@
         }
 
         function setVideoSrc(raw) {
-          const src = resolveMediaUrl(raw);
+          const src = resolveVideoUrl(raw);
           if (!src) {
             if (videoEl) {
               videoEl.pause();
@@ -445,9 +508,6 @@
             if (mjpegEl) {
               mjpegEl.hidden = false;
               mjpegEl.src = src + (src.includes("?") ? "&" : "?") + "_t=" + Date.now();
-              mjpegEl.onerror = function () {
-                setStatus("MJPEG // betöltés sikertelen");
-              };
             }
           } else {
             if (mjpegEl) {
@@ -471,7 +531,7 @@
             resetVideo();
           }
           if (activeLayer === "celebration" && next !== "celebration") {
-            stopCarousel();
+            stopCelebration();
           }
 
           activeLayer = next;
@@ -482,17 +542,10 @@
             const on = key === next;
             el.classList.toggle("is-active", on);
             el.setAttribute("aria-hidden", on ? "false" : "true");
-            el.style.zIndex = on ? "999" : "0";
           }
 
-          if (next === "video") {
-            playVideo();
-          }
-          if (next === "celebration") {
-            startCelebrationCarousel();
-          }
-
-          setStatus("MQTT // " + next.toUpperCase() + " // " + (mqttClient && mqttClient.connected ? "OK" : "…"));
+          if (next === "video") playVideo();
+          if (next === "celebration") startCelebration();
         }
 
         function handleTopic(topic, text) {
@@ -518,15 +571,20 @@
               break;
             case "bigscreen/players":
               players = parsePlayersJson(text);
-              if (activeLayer === "celebration") startCelebrationCarousel();
+              if (activeLayer === "celebration") rebuildCelebration();
               break;
             case "bigscreen/celebration/background":
-              celebrationTemplateId = normalizeTemplateId(text);
-              if (activeLayer === "celebration") showCelebrationPlayer(carouselIndex);
+              backgroundId = normalizeBackgroundId(text);
+              updateBackground();
+              if (activeLayer === "celebration" && players.length) {
+                applyTemplateLayout();
+              }
               break;
             case "bigscreen/celebration/cheer":
               cheerUrl = resolveCheerUrl(text);
-              if (activeLayer === "celebration") startCheer();
+              if (activeLayer === "celebration" && players.length && cheerStarted) {
+                startCheer();
+              }
               break;
             default:
               break;
@@ -534,31 +592,13 @@
         }
 
         if (!Mqtt) {
-          setStatus("MQTT // ERROR // mqtt-client.js not loaded");
+          setMqttStatus("error");
         } else {
-          mqttClient = Mqtt.connect({
+          Mqtt.connect({
             topics: TOPICS,
             onMessage: handleTopic,
-            onStatus: function (state, detail) {
-              switch (state) {
-                case "connecting":
-                  setStatus("MQTT // CONNECTING // " + detail);
-                  break;
-                case "connected":
-                  setStatus("MQTT // CONNECTED // " + activeLayer.toUpperCase());
-                  break;
-                case "reconnecting":
-                  setStatus("MQTT // RECONNECTING");
-                  break;
-                case "disconnected":
-                  setStatus("MQTT // DISCONNECTED");
-                  break;
-                case "error":
-                  setStatus("MQTT // ERROR // " + detail);
-                  break;
-                default:
-                  break;
-              }
+            onStatus: function (state) {
+              setMqttStatus(state === "connected" ? "connected" : state === "error" ? "error" : "");
             },
           });
         }

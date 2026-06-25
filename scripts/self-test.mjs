@@ -304,9 +304,9 @@ if (!bigscreenHtml.includes("bigscreen/photo") || !bigscreenHtml.includes("bigsc
   fail("bigscreen/index.html: MQTT photo/players topic hiányzik");
 } else ok("bigscreen/index.html: MQTT topics");
 
-if (!bigscreenHtml.includes("z-index: 999")) {
-  fail("bigscreen/index.html: réteg z-index váltás hiányzik");
-} else ok("bigscreen/index.html: layer z-index");
+if (!bigscreenHtml.includes("display: none") || !bigscreenHtml.includes("position: fixed")) {
+  fail("bigscreen/index.html: réteg display/fixed váltás hiányzik");
+} else ok("bigscreen/index.html: layer display/fixed");
 
 for (const removed of ["bigscreen/bigscreen.js", "bigscreen/celebration.js", "bigscreen/bigscreen.css"]) {
   if (fs.existsSync(path.join(root, removed))) {
@@ -330,9 +330,17 @@ if (
   fail("smallscreen/index.html: MQTT quiz / result topic hiányzik");
 } else ok("smallscreen/index.html: MQTT quiz topics");
 
-if (!smallscreenHtml.includes("z-index: 999")) {
-  fail("smallscreen/index.html: réteg z-index váltás hiányzik");
-} else ok("smallscreen/index.html: layer z-index");
+if (!smallscreenHtml.includes("display: none") || !smallscreenHtml.includes("position: fixed")) {
+  fail("smallscreen/index.html: réteg display/fixed váltás hiányzik");
+} else ok("smallscreen/index.html: layer display/fixed");
+
+if (!smallscreenHtml.includes("theme.css") || !smallscreenHtml.includes('id="mqtt-status"')) {
+  fail("smallscreen/index.html: theme.css vagy mqtt-status hiányzik");
+} else ok("smallscreen/index.html: theme + mqtt-status");
+
+if (!smallscreenHtml.includes('id="quiz-next"') || !smallscreenHtml.includes("Következő")) {
+  fail("smallscreen/index.html: kvíz Következő gomb hiányzik");
+} else ok("smallscreen/index.html: quiz next button");
 
 if (!smallscreenHtml.includes("min-height: 60px")) {
   fail("smallscreen/index.html: kvíz válasz gomb min-height 60px hiányzik");
@@ -350,33 +358,44 @@ if (!adminHtml.includes("mqtt.min.js") || !adminHtml.includes("session/control")
 } else ok("admin/index.html: MQTT operátor panel");
 
 if (
-  !adminHtml.includes("session/group_contact") ||
   !adminHtml.includes("bigscreen/layer") ||
   !adminHtml.includes("smallscreen/layer") ||
-  !adminHtml.includes("bigscreen/players")
+  !adminHtml.includes("smallscreen/quiz/result")
 ) {
   fail("admin/index.html: MQTT topicok hiányoznak");
 } else ok("admin/index.html: MQTT topics");
 
-if (!adminHtml.includes("facingMode") || !adminHtml.includes("environment")) {
-  fail("admin/index.html: environment kamera constraints hiányoznak");
-} else ok("admin/index.html: environment camera");
+if (!adminHtml.includes("grid-template-columns: 1fr 1.5fr 1.5fr")) {
+  fail("admin/index.html: háromoszlopos grid hiányzik");
+} else ok("admin/index.html: operator grid layout");
+
+if (!adminHtml.includes("quiz-result-bar") || !adminHtml.includes("Kvíz eredmény:")) {
+  fail("admin/index.html: kvíz eredmény sáv hiányzik");
+} else ok("admin/index.html: quiz result bar");
+
+if (!adminHtml.includes("BROKER?") || !adminHtml.includes("LS_BROKER_KEY")) {
+  fail("admin/index.html: MQTT broker felülírás hiányzik");
+} else ok("admin/index.html: broker override");
+
+if (!adminHtml.includes("Gratulálás") || !adminHtml.includes('data-layer="celebration"')) {
+  fail("admin/index.html: bigscreen gratulálás gomb hiányzik");
+} else ok("admin/index.html: celebration layer button");
 
 if (!adminHtml.includes("min-height: 56px")) {
   fail("admin/index.html: érintés cél min-height 56px hiányzik");
 } else ok("admin/index.html: touch targets");
 
-if (adminHtml.includes("admin.js") || adminHtml.includes("admin.css")) {
-  fail("admin/index.html: nem lehet legacy admin.js/css hivatkozás");
+if (
+  adminHtml.includes('src="/admin/admin.js"') ||
+  adminHtml.includes("src='admin/admin.js'") ||
+  adminHtml.includes("admin.css")
+) {
+  fail("admin/index.html: nem lehet legacy admin.js/css betöltés");
 } else ok("admin/index.html: self-contained");
 
-if (!adminHtml.includes("/shared/js/mqtt-client.js") || !adminHtml.includes("smallscreen/quiz/result")) {
-  fail("admin/index.html: mqtt-client vagy quiz/result feliratkozás hiányzik");
-} else ok("admin/index.html: mqtt-client + quiz result");
-
-if (!adminHtml.includes("Ünneplés") || !adminHtml.includes("btn-load-roster")) {
-  fail("admin/index.html: sprint C HU copy vagy névsor betöltés hiányzik");
-} else ok("admin/index.html: sprint C operátor UX");
+if (!adminHtml.includes("/shared/js/mqtt-client.js") || !adminHtml.includes("ADMIN_TOPICS")) {
+  fail("admin/index.html: mqtt-client vagy topic feliratkozás hiányzik");
+} else ok("admin/index.html: mqtt-client + topics");
 
 const mqttClientJs = fs.readFileSync(path.join(root, "shared", "js", "mqtt-client.js"), "utf8");
 if (!mqttClientJs.includes("NanoportalMqtt") || !mqttClientJs.includes("RETAIN_TOPICS")) {
