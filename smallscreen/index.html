@@ -80,22 +80,27 @@
       .quiz-header {
         flex-shrink: 0;
         margin-bottom: var(--space-4);
+        font-family: var(--font-display);
       }
 
       .quiz-progress {
         margin: var(--space-2) 0 0;
+        font-family: var(--font-display);
         font-size: var(--text-lg);
+        letter-spacing: var(--tracking-hud);
+        text-transform: uppercase;
         color: var(--text-muted);
       }
 
       #quiz-question {
         margin: 0 0 var(--space-4);
+        text-align: center;
       }
 
       #quiz-answers {
         display: flex;
         flex-direction: column;
-        gap: var(--space-3);
+        gap: var(--space-4);
         flex: 1;
         overflow-y: auto;
       }
@@ -109,29 +114,40 @@
 
       .quiz-answer.is-correct {
         border-color: var(--success);
-        background: color-mix(in srgb, var(--success) 22%, transparent);
-        color: var(--text-bright);
+        background: var(--success);
+        color: var(--void-900);
       }
 
       .quiz-answer.is-wrong {
         border-color: var(--danger);
-        background: color-mix(in srgb, var(--danger) 18%, transparent);
+        background: var(--danger);
         color: var(--text-bright);
+      }
+
+      .quiz-answer.is-dimmed {
+        opacity: 0.4;
+      }
+
+      #quiz-next {
+        margin-top: var(--space-4);
+        align-self: stretch;
+        background: var(--cyan-400);
+        color: var(--void-900);
+        border-color: var(--cyan-400);
+      }
+
+      #quiz-next:active:not(:disabled) {
+        transform: translateY(1px);
+      }
+
+      #quiz-next[hidden] {
+        display: none !important;
       }
 
       #quiz-play {
         flex: 1;
         display: flex;
         flex-direction: column;
-      }
-
-      #quiz-next {
-        margin-top: var(--space-4);
-        align-self: stretch;
-      }
-
-      #quiz-next[hidden] {
-        display: none !important;
       }
 
       #quiz-result {
@@ -164,27 +180,41 @@
         font-family: var(--font-display);
         font-size: clamp(2rem, 6vw, 3.5rem);
         font-weight: 700;
-        color: var(--text-bright);
+        color: var(--success);
+      }
+
+      .quiz-result-sub {
+        margin: 0;
+        font-size: var(--text-lg);
+        color: var(--text-muted);
+      }
+
+      #quiz-retry {
+        min-height: 56px;
+        min-width: 10rem;
       }
 
       #mqtt-status {
         position: fixed;
-        right: var(--space-3);
         bottom: var(--space-2);
-        z-index: 1000;
+        right: var(--space-2);
         font-family: var(--font-mono);
         font-size: var(--text-xs);
-        opacity: 0.5;
         color: var(--text-muted);
+        opacity: 0.5;
         pointer-events: none;
+        z-index: 9999;
+        transition: color 0.3s, opacity 0.3s;
       }
 
-      #mqtt-status.is-connected {
+      #mqtt-status.connected {
         color: var(--cyan-400);
+        opacity: 0.7;
       }
 
-      #mqtt-status.is-error {
+      #mqtt-status.error {
         color: var(--danger);
+        opacity: 0.9;
       }
     </style>
     <script src="/shared/js/media-url.js"></script>
@@ -209,11 +239,13 @@
         </header>
         <h2 id="quiz-question" class="text-hero">Várakozás kérdésekre…</h2>
         <div id="quiz-answers"></div>
-        <button type="button" id="quiz-next" class="btn-neon btn-cta" hidden>Következő</button>
+        <button type="button" id="quiz-next" class="btn-neon btn-cta" hidden>Következő →</button>
       </div>
       <div id="quiz-result" aria-live="polite">
         <h2 class="quiz-result-title">Eredmény</h2>
         <p class="quiz-result-score" id="quiz-result-score">0 / 0</p>
+        <p class="quiz-result-sub">helyes válasz</p>
+        <button type="button" id="quiz-retry" class="btn-neon">Újra</button>
       </div>
     </section>
 
@@ -235,6 +267,7 @@
         const quizAnswers = document.getElementById("quiz-answers");
         const quizProgress = document.getElementById("quiz-progress");
         const quizNext = document.getElementById("quiz-next");
+        const quizRetry = document.getElementById("quiz-retry");
         const quizResultScore = document.getElementById("quiz-result-score");
         const statusEl = document.getElementById("mqtt-status");
 
@@ -256,9 +289,9 @@
 
         function setMqttStatus(state) {
           if (!statusEl) return;
-          statusEl.classList.remove("is-connected", "is-error");
-          if (state === "connected") statusEl.classList.add("is-connected");
-          else if (state === "error") statusEl.classList.add("is-error");
+          statusEl.classList.remove("connected", "error");
+          if (state === "connected") statusEl.classList.add("connected");
+          else if (state === "error") statusEl.classList.add("error");
         }
 
         function resolveImageSrc(raw) {
@@ -353,7 +386,8 @@
           const q = quizQuestions[questionIndex];
           if (quizQuestion) quizQuestion.textContent = q.question;
           if (quizProgress) {
-            quizProgress.textContent = questionIndex + 1 + " / " + quizQuestions.length;
+            quizProgress.textContent =
+              questionIndex + 1 + " / " + quizQuestions.length + ". KÉRDÉS";
           }
           if (quizAnswers) {
             quizAnswers.innerHTML = "";
@@ -383,14 +417,24 @@
 
           if (!chosen.correct) {
             const btn = buttons[answerIndex];
-            if (btn) btn.classList.add("is-wrong");
+            if (btn) {
+              btn.classList.add("is-wrong");
+              btn.textContent = "✕ " + chosen.text;
+            }
             return;
           }
 
           score += 1;
           buttons.forEach(function (btn, i) {
-            btn.disabled = true;
-            if (i === answerIndex) btn.classList.add("is-correct");
+            const ans = q.answers[i];
+            if (i === answerIndex) {
+              btn.classList.add("is-correct");
+              btn.textContent = "✓ " + ans.text;
+              btn.disabled = true;
+            } else {
+              btn.classList.add("is-dimmed");
+              btn.disabled = true;
+            }
           });
 
           awaitingNext = true;
@@ -405,6 +449,12 @@
 
         if (quizNext) {
           quizNext.addEventListener("click", onQuizNext);
+        }
+
+        if (quizRetry) {
+          quizRetry.addEventListener("click", function () {
+            startQuiz();
+          });
         }
 
         function startQuiz() {

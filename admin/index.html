@@ -89,9 +89,17 @@
         white-space: nowrap;
       }
 
-      .admin-grid {
+      .admin-body {
         flex: 1;
         min-height: 0;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+      }
+
+      .admin-grid {
+        flex-shrink: 0;
         display: grid;
         grid-template-columns: 1fr 1.5fr 1.5fr;
         gap: var(--space-4);
@@ -101,8 +109,298 @@
       @media (max-width: 900px) {
         .admin-grid {
           grid-template-columns: 1fr;
-          overflow-y: auto;
         }
+      }
+
+      .visitor-panel {
+        flex-shrink: 0;
+        margin: 0 var(--space-4) var(--space-3);
+        background: var(--void-800);
+        border: var(--border-width) solid var(--panel-border);
+        border-radius: var(--radius-md);
+        padding: var(--space-4);
+      }
+
+      .visitor-panel > summary {
+        cursor: pointer;
+        font-family: var(--font-display);
+        font-size: var(--text-sm);
+        letter-spacing: var(--tracking-hud);
+        color: var(--cyan-300);
+        text-transform: uppercase;
+        list-style: none;
+      }
+
+      .visitor-panel > summary::-webkit-details-marker {
+        display: none;
+      }
+
+      .visitor-panel[open] > summary {
+        margin-bottom: var(--space-4);
+      }
+
+      .visitor-block {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+      }
+
+      .visitor-block + .visitor-block {
+        margin-top: var(--space-4);
+        padding-top: var(--space-4);
+        border-top: var(--border-width) solid var(--panel-border);
+      }
+
+      .visitor-block-title {
+        margin: 0;
+        font-family: var(--font-display);
+        font-size: var(--text-xs);
+        letter-spacing: var(--tracking-hud);
+        color: var(--text-muted);
+        text-transform: uppercase;
+      }
+
+      .contact-row,
+      .visitor-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-2);
+        min-height: 44px;
+      }
+
+      .contact-row .field-input {
+        flex: 1;
+        min-width: 10rem;
+      }
+
+      .visitor-nick {
+        width: 7rem;
+        text-transform: uppercase;
+      }
+
+      .visitor-thumb {
+        width: 50px;
+        height: 50px;
+        object-fit: cover;
+        border-radius: var(--radius-sm);
+        border: var(--border-width) solid var(--panel-border);
+      }
+
+      .visitor-thumb[hidden] {
+        display: none;
+      }
+
+      .badge-ok,
+      .badge-err {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.5rem;
+        min-height: 1.5rem;
+        padding: 0 var(--space-2);
+        border-radius: var(--radius-sm);
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+        font-weight: 700;
+      }
+
+      .badge-ok {
+        background: var(--success);
+        color: var(--void-900);
+      }
+
+      .badge-err {
+        background: var(--danger);
+        color: var(--text-bright);
+      }
+
+      .badge-ok[hidden],
+      .badge-err[hidden] {
+        display: none;
+      }
+
+      .btn-remove-row,
+      .visitor-remove {
+        min-width: 44px;
+        min-height: 44px;
+        padding: var(--space-2);
+      }
+
+      .btn-add-row {
+        align-self: flex-start;
+      }
+
+      .btn-cta {
+        align-self: flex-start;
+        margin-top: var(--space-2);
+      }
+
+      .visitor-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-3);
+        margin-top: var(--space-2);
+      }
+
+      .camera-section {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+        margin-bottom: var(--space-3);
+        padding-bottom: var(--space-3);
+        border-bottom: var(--border-width) solid var(--panel-border);
+      }
+
+      #camera-preview {
+        max-width: 100%;
+        max-height: 240px;
+        object-fit: cover;
+        border-radius: var(--radius-sm);
+        border: var(--border-width) solid var(--panel-border);
+        background: var(--void-900);
+      }
+
+      #camera-preview[hidden] {
+        display: none;
+      }
+
+      .camera-error,
+      .error-banner {
+        margin: 0;
+        padding: var(--space-3);
+        border-radius: var(--radius-sm);
+        border: var(--border-width) solid color-mix(in srgb, var(--danger) 40%, transparent);
+        background: color-mix(in srgb, var(--danger) 12%, var(--void-900));
+        color: var(--danger);
+        font-family: var(--font-mono);
+        font-size: var(--text-sm);
+      }
+
+      .camera-error[hidden] {
+        display: none;
+      }
+
+      .camera-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+        align-items: center;
+      }
+
+      .photo-fallback-label {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+
+      .photo-fallback-label[hidden] {
+        display: none;
+      }
+
+      .quiz-panel {
+        margin-top: 0;
+      }
+
+      .quiz-question-card {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-3);
+        padding: var(--space-3);
+        margin-bottom: var(--space-3);
+        border: var(--border-width) solid var(--panel-border);
+        border-radius: var(--radius-md);
+        background: color-mix(in srgb, var(--void-850) 60%, transparent);
+      }
+
+      .quiz-question-text {
+        width: 100%;
+        min-height: 4rem;
+        resize: vertical;
+        font-family: var(--font-mono);
+        font-size: var(--text-md);
+        padding: var(--space-3);
+        border-radius: var(--radius-md);
+        border: var(--border-width) solid color-mix(in srgb, var(--cyan-400) 35%, transparent);
+        background: color-mix(in srgb, var(--void-900) 85%, transparent);
+        color: var(--text-bright);
+      }
+
+      .quiz-answer-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: var(--space-2);
+        min-height: 44px;
+      }
+
+      .quiz-answer-row .field-input {
+        flex: 1;
+        min-width: 8rem;
+      }
+
+      .quiz-answer-correct {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-2);
+        font-size: var(--text-xs);
+        color: var(--text-muted);
+        white-space: nowrap;
+      }
+
+      .quiz-editor-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-3);
+        margin-top: var(--space-2);
+      }
+
+      #quiz-validation-error {
+        display: block;
+        margin-top: var(--space-3);
+      }
+
+      #quiz-validation-error[hidden] {
+        display: none;
+      }
+
+      .quiz-preview-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 2000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: var(--space-4);
+        background: color-mix(in srgb, var(--void-900) 75%, transparent);
+      }
+
+      .quiz-preview-modal[hidden] {
+        display: none;
+      }
+
+      .quiz-preview-card {
+        width: min(100%, 28rem);
+        max-height: 90vh;
+        overflow-y: auto;
+        padding: var(--space-4);
+        border-radius: var(--radius-md);
+        border: var(--border-width) solid var(--panel-border);
+        background: var(--void-800);
+      }
+
+      .quiz-preview-card .text-hero {
+        text-align: center;
+        margin: var(--space-3) 0 var(--space-4);
+      }
+
+      .quiz-preview-answers {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-4);
       }
 
       .admin-col {
@@ -196,6 +494,7 @@
       }
     </style>
     <script src="https://unpkg.com/mqtt@5.10.4/dist/mqtt.min.js"></script>
+    <script src="/shared/js/admin-upload.js"></script>
     <script src="/shared/js/mqtt-client.js"></script>
   </head>
   <body class="admin-shell">
@@ -208,6 +507,7 @@
       </div>
     </header>
 
+    <div class="admin-body">
     <main class="admin-grid">
       <section class="admin-col" id="col-controls" aria-labelledby="title-controls">
         <h2 class="admin-col-title" id="title-controls">Vezérlés</h2>
@@ -293,6 +593,62 @@
         </div>
       </section>
     </main>
+
+    <details class="visitor-panel" open>
+      <summary>👥 Látogatók és kapcsolat</summary>
+      <section class="visitor-block" id="block-contact">
+        <h3 class="visitor-block-title">Csoportkapcsolat</h3>
+        <div id="email-rows"></div>
+        <button type="button" class="btn-neon btn-add-row" id="btn-add-email">+ Email hozzáadása</button>
+        <div id="phone-rows"></div>
+        <button type="button" class="btn-neon btn-add-row" id="btn-add-phone">+ Telefon hozzáadása</button>
+        <button type="button" class="btn-neon btn-cta" id="btn-send-contact" disabled>📤 Kapcsolat küldése</button>
+      </section>
+      <section class="visitor-block" id="block-visitors">
+        <h3 class="visitor-block-title">Látogatók</h3>
+        <section id="camera-section" class="camera-section">
+          <video id="camera-preview" playsinline autoplay muted hidden></video>
+          <canvas id="camera-canvas" hidden></canvas>
+          <div id="camera-error" class="camera-error" hidden></div>
+          <div class="camera-actions">
+            <button type="button" class="btn-neon" id="btn-camera-start">Kamera be</button>
+            <button type="button" class="btn-neon" id="btn-camera-capture" disabled>Felvétel</button>
+          </div>
+        </section>
+        <input type="file" id="photo-fallback" accept="image/*" capture="environment" hidden />
+        <label for="photo-fallback" class="btn-neon photo-fallback-label" id="photo-fallback-label" hidden>
+           Fotó választása galériából
+        </label>
+        <div id="visitor-rows"></div>
+        <button type="button" class="btn-neon" id="btn-add-visitor">+ Látogató hozzáadása</button>
+        <div class="visitor-actions">
+          <button type="button" class="btn-neon btn-cta" id="btn-send-players" disabled>🎉 Küldés Bigscreenre</button>
+          <button type="button" class="btn-neon" id="btn-clear-visitors">🗑 Látogatók törlése</button>
+        </div>
+      </section>
+    </details>
+
+    <details class="visitor-panel quiz-panel" open>
+      <summary> Kvíz szerkesztő</summary>
+      <div id="quiz-questions-list"></div>
+      <button type="button" class="btn-neon btn-add-row" id="btn-add-question">+ Kérdés hozzáadása</button>
+      <div class="quiz-editor-actions">
+        <button type="button" class="btn-neon" id="btn-quiz-preview">👁 Előnézet</button>
+        <button type="button" class="btn-neon btn-cta" id="btn-quiz-send" disabled>📤 Kvíz küldése a smallscreenre</button>
+      </div>
+      <span id="quiz-validation-error" class="badge-err" hidden></span>
+    </details>
+    </div>
+
+    <div id="quiz-preview-modal" class="quiz-preview-modal" hidden>
+      <div class="quiz-preview-card" role="dialog" aria-labelledby="quiz-preview-title">
+        <p class="hud-label" id="quiz-preview-title">Smallscreen előnézet</p>
+        <p class="quiz-progress" id="quiz-preview-progress">1 / 1. KÉRDÉS</p>
+        <h2 class="text-hero" id="quiz-preview-question"></h2>
+        <div class="quiz-preview-answers" id="quiz-preview-answers"></div>
+        <button type="button" class="btn-neon" id="btn-quiz-preview-close" style="margin-top: var(--space-4)">Bezárás</button>
+      </div>
+    </div>
 
     <footer class="quiz-result-bar">
       <p id="quiz-result-line" aria-live="polite">Kvíz eredmény: —</p>
@@ -387,12 +743,685 @@
           } catch (_) {}
         }
 
-        function publish(topic, payload) {
+        function publish(topic, payload, opts) {
           if (!mqttClient || !mqttConnected || !Mqtt) {
             return Promise.reject(new Error("MQTT nincs csatlakozva."));
           }
-          return Mqtt.publish(mqttClient, topic, payload);
+          return Mqtt.publish(mqttClient, topic, payload, opts);
         }
+
+        /* --- Látogatók és csoportkapcsolat --- */
+        /*
+         * TABLET TESZT — Samsung Galaxy Tab S10 FE:
+         * 1. Apache HTTPS szükséges: sudo a2enmod ssl, self-signed cert OK LAN-on
+         * 2. .htaccess: Permissions-Policy: camera=(self)  — sudo a2enmod headers
+         * 3. Firefox Android: about:config → media.devices.insecure.enabled ellenőrzés
+         * 4. Chrome Android: ha HTTP kell: chrome://flags → "Insecure origins treated as secure"
+         *    → add: http://nanoportal.local
+         * 5. Ha fekete kép: Kamera ki → be gomb, vagy böngésző engedélyek reset
+         * 6. Távelérés: ADB over WiFi: adb connect <tablet_ip>:5555
+         */
+
+        const MAX_CONTACT = 5;
+        const MAX_VISITORS = 6;
+        let emails = [];
+        let phones = [];
+        let visitors = [];
+        let pendingUploadIndex = null;
+        let cameraStream = null;
+
+        const emailRowsEl = document.getElementById("email-rows");
+        const phoneRowsEl = document.getElementById("phone-rows");
+        const visitorRowsEl = document.getElementById("visitor-rows");
+        const photoFallbackInput = document.getElementById("photo-fallback");
+        const photoFallbackLabel = document.getElementById("photo-fallback-label");
+        const cameraSectionEl = document.getElementById("camera-section");
+        const cameraPreviewEl = document.getElementById("camera-preview");
+        const cameraCanvasEl = document.getElementById("camera-canvas");
+        const cameraErrorEl = document.getElementById("camera-error");
+        const btnCameraStart = document.getElementById("btn-camera-start");
+        const btnCameraCapture = document.getElementById("btn-camera-capture");
+        const btnAddEmail = document.getElementById("btn-add-email");
+        const btnAddPhone = document.getElementById("btn-add-phone");
+        const btnSendContact = document.getElementById("btn-send-contact");
+        const btnAddVisitor = document.getElementById("btn-add-visitor");
+        const btnSendPlayers = document.getElementById("btn-send-players");
+        const btnClearVisitors = document.getElementById("btn-clear-visitors");
+
+        const cameraSecure =
+          location.protocol === "https:" || location.hostname === "localhost";
+
+        function showCameraError(message) {
+          if (!cameraErrorEl) return;
+          if (!message) {
+            cameraErrorEl.hidden = true;
+            cameraErrorEl.textContent = "";
+            return;
+          }
+          cameraErrorEl.hidden = false;
+          cameraErrorEl.textContent = message;
+        }
+
+        function showPhotoFallback() {
+          if (photoFallbackLabel) photoFallbackLabel.hidden = false;
+        }
+
+        function cameraErrorText(err) {
+          const name = String(err && err.name ? err.name : "");
+          if (name === "NotAllowedError") {
+            return "Kamera engedély szükséges. Böngésző beállítások → Engedélyek → Kamera: Engedélyez.";
+          }
+          return String((err && err.message) || err || "Kamera hiba");
+        }
+
+        function stopCamera() {
+          if (cameraStream) {
+            cameraStream.getTracks().forEach(function (track) {
+              track.stop();
+            });
+            cameraStream = null;
+          }
+          if (cameraPreviewEl) {
+            cameraPreviewEl.srcObject = null;
+            cameraPreviewEl.hidden = true;
+          }
+          if (btnCameraCapture) btnCameraCapture.disabled = true;
+        }
+
+        async function startCamera() {
+          showCameraError("");
+          stopCamera();
+          if (!cameraSecure) {
+            showPhotoFallback();
+            return null;
+          }
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            showCameraError("A böngésző nem támogatja a kamerát.");
+            showPhotoFallback();
+            return null;
+          }
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                facingMode: { ideal: "environment" },
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+              },
+            });
+            cameraStream = stream;
+            if (cameraPreviewEl) {
+              cameraPreviewEl.srcObject = stream;
+              cameraPreviewEl.hidden = false;
+              await cameraPreviewEl.play();
+            }
+            if (btnCameraCapture) btnCameraCapture.disabled = false;
+            return stream;
+          } catch (e1) {
+            try {
+              const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+              cameraStream = stream;
+              if (cameraPreviewEl) {
+                cameraPreviewEl.srcObject = stream;
+                cameraPreviewEl.hidden = false;
+                await cameraPreviewEl.play();
+              }
+              if (btnCameraCapture) btnCameraCapture.disabled = false;
+              return stream;
+            } catch (e2) {
+              showCameraError(cameraErrorText(e2));
+              showPhotoFallback();
+              throw e2;
+            }
+          }
+        }
+
+        if (cameraSectionEl && !cameraSecure) {
+          cameraSectionEl.innerHTML =
+            '<p class="error-banner">⚠️ A kamerához HTTPS szükséges.<br>' +
+            "Kérj segítséget az operátortól az URL megváltoztatásához.</p>";
+          showPhotoFallback();
+        }
+
+        if (btnCameraStart && cameraSecure) {
+          btnCameraStart.addEventListener("click", function () {
+            void startCamera();
+          });
+        }
+
+        function processVisitorPhotoFile(file) {
+          const idx = pendingUploadIndex;
+          pendingUploadIndex = null;
+          if (!file || idx === null || !visitors[idx]) return;
+
+          visitors[idx].status = "uploading";
+          renderVisitorRows();
+
+          uploadVisitorPhoto(file)
+            .then(function (path) {
+              visitors[idx].photoPath = path;
+              visitors[idx].status = "ok";
+              stopCamera();
+              renderVisitorRows();
+              updateVisitorButtons();
+            })
+            .catch(function () {
+              visitors[idx].status = "error";
+              renderVisitorRows();
+            });
+        }
+
+        if (btnCameraCapture && cameraSecure) {
+          btnCameraCapture.addEventListener("click", function () {
+            if (pendingUploadIndex === null || !visitors[pendingUploadIndex]) {
+              showCameraError("Előbb válassz látogatót a Fotó feltöltése gombbal.");
+              return;
+            }
+            if (!cameraPreviewEl || !cameraCanvasEl || !cameraStream) return;
+            const w = cameraPreviewEl.videoWidth;
+            const h = cameraPreviewEl.videoHeight;
+            if (!w || !h) {
+              showCameraError("A kamera képe még nem érkezett meg. Próbáld újra.");
+              return;
+            }
+            cameraCanvasEl.width = w;
+            cameraCanvasEl.height = h;
+            const ctx = cameraCanvasEl.getContext("2d");
+            if (!ctx) return;
+            ctx.drawImage(cameraPreviewEl, 0, 0, w, h);
+            cameraCanvasEl.toBlob(
+              function (blob) {
+                if (!blob) {
+                  showCameraError("Nem sikerült a képet menteni.");
+                  return;
+                }
+                processVisitorPhotoFile(blob);
+              },
+              "image/jpeg",
+              0.92,
+            );
+          });
+        }
+
+        if (photoFallbackInput) {
+          photoFallbackInput.addEventListener("change", function () {
+            const file = photoFallbackInput.files && photoFallbackInput.files[0];
+            photoFallbackInput.value = "";
+            if (!file) return;
+            processVisitorPhotoFile(file);
+          });
+        }
+
+        function collectContact() {
+          const e = emails.map(function (s) {
+            return String(s).trim();
+          }).filter(Boolean);
+          const p = phones.map(function (s) {
+            return String(s).trim();
+          }).filter(Boolean);
+          return { emails: e, phones: p };
+        }
+
+        function buildPlayersPayload() {
+          const out = [];
+          for (const v of visitors) {
+            const name = String(v.nickname || "").trim().toUpperCase();
+            if (!name) continue;
+            out.push({ photo: v.photoPath || null, name: name });
+          }
+          return out;
+        }
+
+        function updateVisitorButtons() {
+          const contact = collectContact();
+          const hasContact = contact.emails.length > 0 || contact.phones.length > 0;
+          if (btnSendContact) btnSendContact.disabled = !mqttConnected || !hasContact;
+          if (btnSendPlayers) {
+            btnSendPlayers.disabled = !mqttConnected || buildPlayersPayload().length === 0;
+          }
+          if (btnAddVisitor) btnAddVisitor.disabled = visitors.length >= MAX_VISITORS;
+          if (btnAddEmail) btnAddEmail.disabled = emails.length >= MAX_CONTACT;
+          if (btnAddPhone) btnAddPhone.disabled = phones.length >= MAX_CONTACT;
+        }
+
+        function renderEmailRows() {
+          if (!emailRowsEl) return;
+          emailRowsEl.innerHTML = "";
+          emails.forEach(function (value, i) {
+            const row = document.createElement("div");
+            row.className = "contact-row";
+            const input = document.createElement("input");
+            input.type = "email";
+            input.className = "field-input";
+            input.placeholder = "email@pelda.hu";
+            input.value = value;
+            input.addEventListener("input", function () {
+              emails[i] = input.value;
+              updateVisitorButtons();
+            });
+            const remove = document.createElement("button");
+            remove.type = "button";
+            remove.className = "btn-neon btn-remove-row";
+            remove.textContent = "✕";
+            remove.addEventListener("click", function () {
+              emails.splice(i, 1);
+              renderEmailRows();
+              updateVisitorButtons();
+            });
+            row.appendChild(input);
+            row.appendChild(remove);
+            emailRowsEl.appendChild(row);
+          });
+        }
+
+        function renderPhoneRows() {
+          if (!phoneRowsEl) return;
+          phoneRowsEl.innerHTML = "";
+          phones.forEach(function (value, i) {
+            const row = document.createElement("div");
+            row.className = "contact-row";
+            const input = document.createElement("input");
+            input.type = "tel";
+            input.className = "field-input";
+            input.placeholder = "+36 …";
+            input.value = value;
+            input.addEventListener("input", function () {
+              phones[i] = input.value;
+              updateVisitorButtons();
+            });
+            const remove = document.createElement("button");
+            remove.type = "button";
+            remove.className = "btn-neon btn-remove-row";
+            remove.textContent = "✕";
+            remove.addEventListener("click", function () {
+              phones.splice(i, 1);
+              renderPhoneRows();
+              updateVisitorButtons();
+            });
+            row.appendChild(input);
+            row.appendChild(remove);
+            phoneRowsEl.appendChild(row);
+          });
+        }
+
+        function renderVisitorRows() {
+          if (!visitorRowsEl) return;
+          visitorRowsEl.innerHTML = "";
+          visitors.forEach(function (v, i) {
+            const row = document.createElement("div");
+            row.className = "visitor-row";
+
+            const nick = document.createElement("input");
+            nick.type = "text";
+            nick.className = "field-input visitor-nick";
+            nick.maxLength = 20;
+            nick.placeholder = "pl. ANNA";
+            nick.value = v.nickname || "";
+            nick.addEventListener("input", function () {
+              visitors[i].nickname = nick.value;
+              updateVisitorButtons();
+            });
+
+            const uploadBtn = document.createElement("button");
+            uploadBtn.type = "button";
+            uploadBtn.className = "btn-neon visitor-upload";
+            uploadBtn.textContent =
+              v.status === "uploading" ? "Feltöltés…" : "📷 Fotó feltöltése";
+            uploadBtn.disabled = v.status === "uploading";
+            uploadBtn.addEventListener("click", function () {
+              pendingUploadIndex = i;
+              if (cameraSecure) {
+                void startCamera();
+              } else {
+                showPhotoFallback();
+              }
+            });
+
+            const thumb = document.createElement("img");
+            thumb.className = "visitor-thumb";
+            thumb.alt = "";
+            if (v.photoPath) {
+              thumb.src = v.photoPath;
+              thumb.hidden = false;
+            } else {
+              thumb.hidden = true;
+            }
+
+            const badgeOk = document.createElement("span");
+            badgeOk.className = "badge-ok";
+            badgeOk.textContent = "✓";
+            badgeOk.hidden = v.status !== "ok";
+
+            const badgeErr = document.createElement("span");
+            badgeErr.className = "badge-err";
+            badgeErr.textContent = "Feltöltés sikertelen";
+            badgeErr.hidden = v.status !== "error";
+
+            const remove = document.createElement("button");
+            remove.type = "button";
+            remove.className = "btn-neon visitor-remove";
+            remove.textContent = "✕";
+            remove.addEventListener("click", function () {
+              visitors.splice(i, 1);
+              renderVisitorRows();
+              updateVisitorButtons();
+            });
+
+            row.appendChild(nick);
+            row.appendChild(uploadBtn);
+            row.appendChild(thumb);
+            row.appendChild(badgeOk);
+            row.appendChild(badgeErr);
+            row.appendChild(remove);
+            visitorRowsEl.appendChild(row);
+          });
+        }
+
+        async function uploadVisitorPhoto(file) {
+          const Upload = window.NanoportalAdminUpload;
+          if (!Upload) throw new Error("upload modul hiányzik");
+          return Upload.uploadBlob(file, "visitor");
+        }
+
+        if (btnAddEmail) {
+          btnAddEmail.addEventListener("click", function () {
+            if (emails.length >= MAX_CONTACT) return;
+            emails.push("");
+            renderEmailRows();
+            updateVisitorButtons();
+          });
+        }
+
+        if (btnAddPhone) {
+          btnAddPhone.addEventListener("click", function () {
+            if (phones.length >= MAX_CONTACT) return;
+            phones.push("");
+            renderPhoneRows();
+            updateVisitorButtons();
+          });
+        }
+
+        if (btnAddVisitor) {
+          btnAddVisitor.addEventListener("click", function () {
+            if (visitors.length >= MAX_VISITORS) return;
+            visitors.push({ nickname: "", photoPath: null, status: "idle" });
+            renderVisitorRows();
+            updateVisitorButtons();
+          });
+        }
+
+        if (btnSendContact) {
+          btnSendContact.addEventListener("click", function () {
+            publish(
+              "session/group_contact",
+              JSON.stringify(collectContact()),
+              { retain: false },
+            ).catch(function () {});
+          });
+        }
+
+        if (btnSendPlayers) {
+          btnSendPlayers.addEventListener("click", function () {
+            publish("bigscreen/players", JSON.stringify(buildPlayersPayload())).catch(
+              function () {},
+            );
+          });
+        }
+
+        if (btnClearVisitors) {
+          btnClearVisitors.addEventListener("click", function () {
+            visitors = [];
+            pendingUploadIndex = null;
+            stopCamera();
+            renderVisitorRows();
+            updateVisitorButtons();
+          });
+        }
+
+        updateVisitorButtons();
+
+        /* --- Kvíz szerkesztő --- */
+
+        const MAX_QUIZ_QUESTIONS = 10;
+        const MAX_QUIZ_ANSWERS = 4;
+        let editorQuestions = [];
+
+        const quizQuestionsListEl = document.getElementById("quiz-questions-list");
+        const btnAddQuestion = document.getElementById("btn-add-question");
+        const btnQuizPreview = document.getElementById("btn-quiz-preview");
+        const btnQuizSend = document.getElementById("btn-quiz-send");
+        const quizValidationErrorEl = document.getElementById("quiz-validation-error");
+        const quizPreviewModal = document.getElementById("quiz-preview-modal");
+        const quizPreviewProgress = document.getElementById("quiz-preview-progress");
+        const quizPreviewQuestion = document.getElementById("quiz-preview-question");
+        const quizPreviewAnswers = document.getElementById("quiz-preview-answers");
+        const btnQuizPreviewClose = document.getElementById("btn-quiz-preview-close");
+
+        function validateQuiz(questions) {
+          for (const q of questions) {
+            if (!q.question.trim()) return "Minden kérdésnek kell szöveg.";
+            if (q.answers.length < 2) return "Legalább 2 válasz szükséges kérdésenként.";
+            const correctCount = q.answers.filter(function (a) {
+              return a.correct;
+            }).length;
+            if (correctCount !== 1) {
+              return (
+                '"' +
+                q.question.slice(0, 30) +
+                '..." — pontosan 1 helyes választ jelölj meg.'
+              );
+            }
+          }
+          return null;
+        }
+
+        function buildQuizPayload() {
+          return editorQuestions.map(function (q) {
+            return {
+              question: String(q.question).trim(),
+              answers: q.answers.map(function (a) {
+                return { text: String(a.text).trim(), correct: Boolean(a.correct) };
+              }),
+            };
+          });
+        }
+
+        function setQuizValidationError(message) {
+          if (!quizValidationErrorEl) return;
+          if (!message) {
+            quizValidationErrorEl.hidden = true;
+            quizValidationErrorEl.textContent = "";
+            return;
+          }
+          quizValidationErrorEl.hidden = false;
+          quizValidationErrorEl.textContent = message;
+        }
+
+        function updateQuizEditorButtons() {
+          if (btnAddQuestion) {
+            btnAddQuestion.disabled = editorQuestions.length >= MAX_QUIZ_QUESTIONS;
+          }
+          if (btnQuizSend) {
+            btnQuizSend.disabled = !mqttConnected || editorQuestions.length === 0;
+          }
+        }
+
+        function renderQuizEditor() {
+          if (!quizQuestionsListEl) return;
+          quizQuestionsListEl.innerHTML = "";
+          editorQuestions.forEach(function (q, qi) {
+            const card = document.createElement("div");
+            card.className = "quiz-question-card";
+
+            const head = document.createElement("div");
+            head.style.display = "flex";
+            head.style.justifyContent = "space-between";
+            head.style.alignItems = "center";
+            const label = document.createElement("span");
+            label.className = "visitor-block-title";
+            label.textContent = "Kérdés " + (qi + 1);
+            const removeQ = document.createElement("button");
+            removeQ.type = "button";
+            removeQ.className = "btn-neon btn-remove-row";
+            removeQ.textContent = "✕";
+            removeQ.addEventListener("click", function () {
+              editorQuestions.splice(qi, 1);
+              renderQuizEditor();
+              updateQuizEditorButtons();
+              setQuizValidationError("");
+            });
+            head.appendChild(label);
+            head.appendChild(removeQ);
+
+            const textarea = document.createElement("textarea");
+            textarea.className = "quiz-question-text";
+            textarea.placeholder = "Írd be a kérdést...";
+            textarea.value = q.question;
+            textarea.addEventListener("input", function () {
+              editorQuestions[qi].question = textarea.value;
+              setQuizValidationError("");
+            });
+
+            const answersWrap = document.createElement("div");
+            q.answers.forEach(function (a, ai) {
+              const row = document.createElement("div");
+              row.className = "quiz-answer-row";
+
+              const input = document.createElement("input");
+              input.type = "text";
+              input.className = "field-input";
+              input.placeholder = "Válasz szövege";
+              input.value = a.text;
+              input.addEventListener("input", function () {
+                editorQuestions[qi].answers[ai].text = input.value;
+                setQuizValidationError("");
+              });
+
+              const correctLabel = document.createElement("label");
+              correctLabel.className = "quiz-answer-correct";
+              const radio = document.createElement("input");
+              radio.type = "radio";
+              radio.name = "correct-" + qi;
+              radio.checked = a.correct;
+              radio.addEventListener("change", function () {
+                editorQuestions[qi].answers.forEach(function (ans, j) {
+                  ans.correct = j === ai;
+                });
+                renderQuizEditor();
+                setQuizValidationError("");
+              });
+              correctLabel.appendChild(radio);
+              correctLabel.appendChild(document.createTextNode("Ez a helyes válasz"));
+
+              const removeA = document.createElement("button");
+              removeA.type = "button";
+              removeA.className = "btn-neon btn-remove-row";
+              removeA.textContent = "✕";
+              removeA.addEventListener("click", function () {
+                editorQuestions[qi].answers.splice(ai, 1);
+                renderQuizEditor();
+                updateQuizEditorButtons();
+                setQuizValidationError("");
+              });
+
+              row.appendChild(input);
+              row.appendChild(correctLabel);
+              row.appendChild(removeA);
+              answersWrap.appendChild(row);
+            });
+
+            const btnAddAnswer = document.createElement("button");
+            btnAddAnswer.type = "button";
+            btnAddAnswer.className = "btn-neon btn-add-row";
+            btnAddAnswer.textContent = "+ Válasz";
+            btnAddAnswer.disabled = q.answers.length >= MAX_QUIZ_ANSWERS;
+            btnAddAnswer.addEventListener("click", function () {
+              if (editorQuestions[qi].answers.length >= MAX_QUIZ_ANSWERS) return;
+              editorQuestions[qi].answers.push({ text: "", correct: false });
+              renderQuizEditor();
+              updateQuizEditorButtons();
+            });
+
+            card.appendChild(head);
+            card.appendChild(textarea);
+            card.appendChild(answersWrap);
+            card.appendChild(btnAddAnswer);
+            quizQuestionsListEl.appendChild(card);
+          });
+        }
+
+        function showQuizPreview() {
+          const err = validateQuiz(editorQuestions);
+          if (err) {
+            setQuizValidationError(err);
+            return;
+          }
+          if (!editorQuestions.length) return;
+          const q = editorQuestions[0];
+          if (quizPreviewProgress) {
+            quizPreviewProgress.textContent =
+              "1 / " + editorQuestions.length + ". KÉRDÉS";
+          }
+          if (quizPreviewQuestion) quizPreviewQuestion.textContent = q.question.trim();
+          if (quizPreviewAnswers) {
+            quizPreviewAnswers.innerHTML = "";
+            q.answers.forEach(function (a) {
+              const btn = document.createElement("button");
+              btn.type = "button";
+              btn.className = "btn-neon quiz-answer";
+              btn.textContent = a.text.trim();
+              btn.disabled = true;
+              quizPreviewAnswers.appendChild(btn);
+            });
+          }
+          if (quizPreviewModal) quizPreviewModal.hidden = false;
+        }
+
+        if (btnAddQuestion) {
+          btnAddQuestion.addEventListener("click", function () {
+            if (editorQuestions.length >= MAX_QUIZ_QUESTIONS) return;
+            editorQuestions.push({
+              question: "",
+              answers: [
+                { text: "", correct: true },
+                { text: "", correct: false },
+              ],
+            });
+            renderQuizEditor();
+            updateQuizEditorButtons();
+          });
+        }
+
+        if (btnQuizPreview) {
+          btnQuizPreview.addEventListener("click", showQuizPreview);
+        }
+
+        if (btnQuizPreviewClose) {
+          btnQuizPreviewClose.addEventListener("click", function () {
+            if (quizPreviewModal) quizPreviewModal.hidden = true;
+          });
+        }
+
+        if (quizPreviewModal) {
+          quizPreviewModal.addEventListener("click", function (e) {
+            if (e.target === quizPreviewModal) quizPreviewModal.hidden = true;
+          });
+        }
+
+        if (btnQuizSend) {
+          btnQuizSend.addEventListener("click", function () {
+            const err = validateQuiz(editorQuestions);
+            if (err) {
+              setQuizValidationError(err);
+              return;
+            }
+            setQuizValidationError("");
+            publish("smallscreen/quiz", JSON.stringify(buildQuizPayload())).catch(
+              function () {},
+            );
+          });
+        }
+
+        updateQuizEditorButtons();
 
         document.getElementById("btn-session-start").addEventListener("click", function () {
           publish("session/control", "start").catch(function () {});
@@ -450,6 +1479,8 @@
                 setMqttStatus("error");
               }
               updatePublishButtons();
+              updateVisitorButtons();
+              updateQuizEditorButtons();
             },
           });
         }

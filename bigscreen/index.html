@@ -138,22 +138,25 @@
 
       #mqtt-status {
         position: fixed;
-        right: var(--space-3);
         bottom: var(--space-2);
-        z-index: 1000;
+        right: var(--space-2);
         font-family: var(--font-mono);
         font-size: var(--text-xs);
-        opacity: 0.5;
         color: var(--text-muted);
+        opacity: 0.5;
         pointer-events: none;
+        z-index: 9999;
+        transition: color 0.3s, opacity 0.3s;
       }
 
-      #mqtt-status.is-connected {
+      #mqtt-status.connected {
         color: var(--cyan-400);
+        opacity: 0.7;
       }
 
-      #mqtt-status.is-error {
+      #mqtt-status.error {
         color: var(--danger);
+        opacity: 0.9;
       }
     </style>
     <script src="/shared/js/media-url.js"></script>
@@ -238,9 +241,9 @@
 
         function setMqttStatus(state) {
           if (!statusEl) return;
-          statusEl.classList.remove("is-connected", "is-error");
-          if (state === "connected") statusEl.classList.add("is-connected");
-          else if (state === "error") statusEl.classList.add("is-error");
+          statusEl.classList.remove("connected", "error");
+          if (state === "connected") statusEl.classList.add("connected");
+          else if (state === "error") statusEl.classList.add("error");
         }
 
         function resolveImageSrc(raw) {

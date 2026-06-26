@@ -19,6 +19,44 @@ function isObject(x) {
   return x !== null && typeof x === "object" && !Array.isArray(x);
 }
 
+function kioskStyleBlock(html) {
+  const m = /<style>([\s\S]*?)<\/style>/i.exec(html);
+  return m ? m[1] : "";
+}
+
+function checkKioskDesignTokens(label, html) {
+  if (!html.includes("theme.css") || !html.includes("components.css")) {
+    fail(`${label}: theme.css vagy components.css import hiányzik`);
+    return;
+  }
+  ok(`${label}: theme + components import`);
+
+  const style = kioskStyleBlock(html);
+  if (/#[0-9a-fA-F]{3,8}\b/.test(style)) {
+    fail(`${label}: hardcoded hex szín a style blokkban`);
+  } else {
+    ok(`${label}: nincs hex szín`);
+  }
+
+  if (/font-size:\s*\d+px/.test(style)) {
+    fail(`${label}: hardcoded px font-size a style blokkban`);
+  } else {
+    ok(`${label}: nincs px font-size`);
+  }
+
+  if (/rgba\s*\(/.test(style)) {
+    fail(`${label}: hardcoded rgba() a style blokkban`);
+  } else {
+    ok(`${label}: nincs rgba()`);
+  }
+
+  if (!html.includes("#mqtt-status.connected") || !html.includes('classList.add("connected")')) {
+    fail(`${label}: mqtt-status.connected token stílus hiányzik`);
+  } else {
+    ok(`${label}: mqtt-status.connected`);
+  }
+}
+
 const statePath = path.join(root, "data", "state.json");
 let raw;
 try {
@@ -256,6 +294,11 @@ for (const rel of extraPaths) {
   else ok(`létezik: ${rel}`);
 }
 
+const themeCss = fs.readFileSync(path.join(root, "shared", "css", "theme.css"), "utf8");
+if (!themeCss.includes("--font-ui")) {
+  fail("theme.css: --font-ui token hiányzik");
+} else ok("theme.css: --font-ui token");
+
 const adminJs = fs.readFileSync(path.join(root, "admin", "admin.js"), "utf8");
 if (!adminJs.includes("photobooth-list.php")) {
   fail("admin.js: photobooth lista API hívás hiányzik");
@@ -308,6 +351,8 @@ if (!bigscreenHtml.includes("display: none") || !bigscreenHtml.includes("positio
   fail("bigscreen/index.html: réteg display/fixed váltás hiányzik");
 } else ok("bigscreen/index.html: layer display/fixed");
 
+checkKioskDesignTokens("bigscreen/index.html", bigscreenHtml);
+
 for (const removed of ["bigscreen/bigscreen.js", "bigscreen/celebration.js", "bigscreen/bigscreen.css"]) {
   if (fs.existsSync(path.join(root, removed))) {
     fail(`eltávolítandó fájl még létezik: ${removed}`);
@@ -334,13 +379,23 @@ if (!smallscreenHtml.includes("display: none") || !smallscreenHtml.includes("pos
   fail("smallscreen/index.html: réteg display/fixed váltás hiányzik");
 } else ok("smallscreen/index.html: layer display/fixed");
 
-if (!smallscreenHtml.includes("theme.css") || !smallscreenHtml.includes('id="mqtt-status"')) {
-  fail("smallscreen/index.html: theme.css vagy mqtt-status hiányzik");
-} else ok("smallscreen/index.html: theme + mqtt-status");
+checkKioskDesignTokens("smallscreen/index.html", smallscreenHtml);
+
+if (!smallscreenHtml.includes('id="mqtt-status"')) {
+  fail("smallscreen/index.html: mqtt-status elem hiányzik");
+} else ok("smallscreen/index.html: mqtt-status elem");
 
 if (!smallscreenHtml.includes('id="quiz-next"') || !smallscreenHtml.includes("Következő")) {
   fail("smallscreen/index.html: kvíz Következő gomb hiányzik");
 } else ok("smallscreen/index.html: quiz next button");
+
+if (!smallscreenHtml.includes('id="quiz-retry"') || !smallscreenHtml.includes("Újra")) {
+  fail("smallscreen/index.html: kvíz Újra gomb hiányzik");
+} else ok("smallscreen/index.html: quiz retry button");
+
+if (!smallscreenHtml.includes(". KÉRDÉS")) {
+  fail("smallscreen/index.html: kvíz progress formátum hiányzik");
+} else ok("smallscreen/index.html: quiz progress label");
 
 if (!smallscreenHtml.includes("min-height: 60px")) {
   fail("smallscreen/index.html: kvíz válasz gomb min-height 60px hiányzik");
@@ -396,6 +451,49 @@ if (
 if (!adminHtml.includes("/shared/js/mqtt-client.js") || !adminHtml.includes("ADMIN_TOPICS")) {
   fail("admin/index.html: mqtt-client vagy topic feliratkozás hiányzik");
 } else ok("admin/index.html: mqtt-client + topics");
+
+if (!adminHtml.includes("session/group_contact")) {
+  fail("admin/index.html: session/group_contact hiányzik");
+} else ok("admin/index.html: group_contact publish");
+
+if (!adminHtml.includes("bigscreen/players")) {
+  fail("admin/index.html: bigscreen/players hiányzik");
+} else ok("admin/index.html: bigscreen players publish");
+
+if (
+  !adminHtml.includes("visitor-panel") &&
+  !adminHtml.includes("Látogatók és kapcsolat")
+) {
+  fail("admin/index.html: látogatói panel hiányzik");
+} else ok("admin/index.html: visitor panel");
+
+if (
+  !adminHtml.includes("/api/upload.php") &&
+  !adminHtml.includes("admin-upload.js")
+) {
+  fail("admin/index.html: visitor upload integráció hiányzik");
+} else ok("admin/index.html: visitor upload");
+
+if (!adminHtml.includes("camera-section") || !adminHtml.includes("startCamera")) {
+  fail("admin/index.html: tablet kamera szekció hiányzik");
+} else ok("admin/index.html: camera section");
+
+if (!adminHtml.includes("photo-fallback")) {
+  fail("admin/index.html: photo-fallback hiányzik");
+} else ok("admin/index.html: photo fallback");
+
+if (!adminHtml.includes("Kvíz szerkesztő") || !adminHtml.includes("smallscreen/quiz")) {
+  fail("admin/index.html: kvíz szerkesztő hiányzik");
+} else ok("admin/index.html: quiz editor");
+
+if (!adminHtml.includes("validateQuiz")) {
+  fail("admin/index.html: validateQuiz hiányzik");
+} else ok("admin/index.html: quiz validation");
+
+const uploadPhp = fs.readFileSync(path.join(root, "api", "upload.php"), "utf8");
+if (!uploadPhp.includes("image/heic") || !uploadPhp.includes("10 * 1024 * 1024")) {
+  fail("api/upload.php: HEIC vagy max méret hiányzik");
+} else ok("api/upload.php: HEIC + 10MB limit");
 
 const mqttClientJs = fs.readFileSync(path.join(root, "shared", "js", "mqtt-client.js"), "utf8");
 if (!mqttClientJs.includes("NanoportalMqtt") || !mqttClientJs.includes("RETAIN_TOPICS")) {

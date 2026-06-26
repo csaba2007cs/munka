@@ -32,12 +32,21 @@ if (!is_string($tmp) || !is_uploaded_file($tmp)) {
     exit;
 }
 
+$max_size = 10 * 1024 * 1024;
+if (($file['size'] ?? 0) > $max_size) {
+    http_response_code(413);
+    echo json_encode(['error' => 'File too large (max 10MB)'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 $finfo = new finfo(FILEINFO_MIME_TYPE);
 $mime = $finfo->file($tmp);
 $map = [
     'image/jpeg' => 'jpg',
     'image/png' => 'png',
     'image/webp' => 'webp',
+    'image/heic' => 'heic',
+    'image/heif' => 'heif',
 ];
 if (!isset($map[$mime])) {
     http_response_code(415);
@@ -67,6 +76,23 @@ if (!move_uploaded_file($tmp, $dest)) {
     http_response_code(500);
     echo json_encode(['error' => 'Save failed'], JSON_UNESCAPED_UNICODE);
     exit;
+}
+
+if (in_array($mime, ['image/heic', 'image/heif'], true)) {
+    $jpg_path = preg_replace('/\.heic$/i', '.jpg', $dest);
+    if ($jpg_path === $dest) {
+        $jpg_path = preg_replace('/\.heif$/i', '.jpg', $dest);
+    }
+    $convert = shell_exec('which convert');
+    if (is_string($convert) && trim($convert) !== '') {
+        shell_exec('convert ' . escapeshellarg($dest) . ' ' . escapeshellarg($jpg_path));
+        if (is_file($jpg_path)) {
+            unlink($dest);
+            $dest = $jpg_path;
+            $name = basename($jpg_path);
+            $ext = 'jpg';
+        }
+    }
 }
 
 $publicPath = '/data/' . rawurlencode($name);
