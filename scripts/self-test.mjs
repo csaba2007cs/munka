@@ -3,6 +3,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { spawnSync } from "child_process";
 
+// Integration: BASE_URL, MQTT_BROKER, INTEGRATION=1 (strict CI)
+//   node scripts/dev-server.mjs   # BASE_URL default 8787
+//   mosquitto WebSocket :9001     # MQTT_BROKER default
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
 
@@ -55,6 +59,114 @@ function checkKioskDesignTokens(label, html) {
   } else {
     ok(`${label}: mqtt-status.connected`);
   }
+}
+
+const integrationBaseUrl = String(process.env.BASE_URL || "http://127.0.0.1:8787").replace(/\/$/, "");
+const mqttBrokerUrl = process.env.MQTT_BROKER || "ws://127.0.0.1:9001";
+const integrationStrict = ["1", "true", "yes"].includes(
+  String(process.env.INTEGRATION || "").toLowerCase(),
+);
+
+function printIntegrationLine(label, result) {
+  const status = result.pass ? "\x1b[32mPASS\x1b[0m" : "\x1b[31mFAIL\x1b[0m";
+  console.log(`${label.padEnd(18)}${status}  ${result.detail}`);
+  if (!result.pass) failed = 1;
+}
+
+function isUnreachableDetail(detail) {
+  return /ECONNREFUSED|fetch failed|Timeout|ENOTFOUND|ECONNRESET|Kapcsolódás sikertelen/i.test(
+    String(detail),
+  );
+}
+
+function handleIntegrationResult(label, result) {
+  if (!result.pass && isUnreachableDetail(result.detail) && !integrationStrict) {
+    console.log(`[WARN] ${label} skip (${result.detail})`);
+    return;
+  }
+  printIntegrationLine(label, result);
+}
+
+function testMqttBrokerReachable(brokerUrl = "ws://127.0.0.1:9001") {
+  return new Promise((resolve) => {
+    const ws = new WebSocket(brokerUrl);
+    const timeout = setTimeout(() => {
+      ws.close();
+      resolve({ pass: false, detail: `Timeout (3s): ${brokerUrl}` });
+    }, 3000);
+    ws.onopen = () => {
+      clearTimeout(timeout);
+      ws.close();
+      resolve({ pass: true, detail: brokerUrl });
+    };
+    ws.onerror = () => {
+      clearTimeout(timeout);
+      resolve({ pass: false, detail: `Kapcsolódás sikertelen: ${brokerUrl}` });
+    };
+  });
+}
+
+async function stateGet(baseUrl) {
+  const res = await fetch(`${baseUrl}/api/state.php`);
+  if (!res.ok) throw new Error(`GET state HTTP ${res.status}`);
+  return res.json();
+}
+
+async function statePost(baseUrl, body) {
+  const res = await fetch(`${baseUrl}/api/state.php`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`POST state HTTP ${res.status}`);
+  return res.json();
+}
+
+async function testScreensPatch(baseUrl) {
+  await statePost(baseUrl, { screens: { big: { layer: "photo" } } });
+  const state = await stateGet(baseUrl);
+  const actual = state?.screens?.big?.layer;
+  return { pass: actual === "photo", detail: `screens.big.layer = "${actual}"` };
+}
+
+async function testVisitorsPatch(baseUrl) {
+  const testVisitor = [{ id: 999, nickname: "SELF_TEST", photo_path: "/data/test.jpg" }];
+  await statePost(baseUrl, { visitors: testVisitor });
+  const state = await stateGet(baseUrl);
+  const actual = state?.visitors?.[0]?.nickname;
+  return { pass: actual === "SELF_TEST", detail: `visitors[0].nickname = "${actual}"` };
+}
+
+async function testGroupContactPatch(baseUrl) {
+  await statePost(baseUrl, {
+    group_contact: { email: "self-test@test.com", phone: "+36000000000" },
+  });
+  const state = await stateGet(baseUrl);
+  const actual = state?.group_contact?.email;
+  return { pass: actual === "self-test@test.com", detail: `group_contact.email = "${actual}"` };
+}
+
+async function testFullReset(baseUrl) {
+  await statePost(baseUrl, { _full_reset: true });
+  const state = await stateGet(baseUrl);
+  return { pass: state?.status === "IDLE", detail: `status = "${state?.status}"` };
+}
+
+async function runIntegrationTest(label, fn) {
+  try {
+    handleIntegrationResult(label, await fn());
+  } catch (e) {
+    handleIntegrationResult(label, { pass: false, detail: String(e.message || e) });
+  }
+}
+
+async function runIntegrationSuite() {
+  console.log("\n--- Integration tests ---");
+  await runIntegrationTest("MQTT broker:", () => testMqttBrokerReachable(mqttBrokerUrl));
+  await runIntegrationTest("screens patch:", () => testScreensPatch(integrationBaseUrl));
+  await runIntegrationTest("visitors patch:", () => testVisitorsPatch(integrationBaseUrl));
+  await runIntegrationTest("group_contact:", () => testGroupContactPatch(integrationBaseUrl));
+  await runIntegrationTest("full reset:", () => testFullReset(integrationBaseUrl));
 }
 
 const statePath = path.join(root, "data", "state.json");
@@ -490,10 +602,25 @@ if (!adminHtml.includes("validateQuiz")) {
   fail("admin/index.html: validateQuiz hiányzik");
 } else ok("admin/index.html: quiz validation");
 
+if (!adminHtml.includes("window-preview") && !adminHtml.includes("Ablakkép")) {
+  fail("admin/index.html: ablakkép panel hiányzik");
+} else ok("admin/index.html: window panel");
+
+if (
+  !adminHtml.includes("bigscreen/photo") ||
+  (!adminHtml.includes("btn-window-send") && !adminHtml.includes('uploadBlob(blob, "window")'))
+) {
+  fail("admin/index.html: ablakkép bigscreen küldés hiányzik");
+} else ok("admin/index.html: window bigscreen publish");
+
 const uploadPhp = fs.readFileSync(path.join(root, "api", "upload.php"), "utf8");
 if (!uploadPhp.includes("image/heic") || !uploadPhp.includes("10 * 1024 * 1024")) {
   fail("api/upload.php: HEIC vagy max méret hiányzik");
 } else ok("api/upload.php: HEIC + 10MB limit");
+
+if (!uploadPhp.includes("'window' => 'window'")) {
+  fail("api/upload.php: window upload kind hiányzik");
+} else ok("api/upload.php: window upload kind");
 
 const mqttClientJs = fs.readFileSync(path.join(root, "shared", "js", "mqtt-client.js"), "utf8");
 if (!mqttClientJs.includes("NanoportalMqtt") || !mqttClientJs.includes("RETAIN_TOPICS")) {
@@ -525,6 +652,8 @@ if (!displayJs.includes(".pause()") || !displayJs.includes("resolveAssetOrUrl"))
 if (!fs.existsSync(path.join(root, "shared", "js", "media-url.js"))) {
   fail("hiányzó: shared/js/media-url.js");
 } else ok("létezik: shared/js/media-url.js");
+
+await runIntegrationSuite();
 
 if (failed) {
   process.exit(1);

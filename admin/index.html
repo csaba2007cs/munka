@@ -301,6 +301,40 @@
         display: none;
       }
 
+      .window-previews {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-3);
+        margin-bottom: var(--space-3);
+      }
+
+      @media (max-width: 700px) {
+        .window-previews {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      #window-preview,
+      #window-snapshot {
+        width: 100%;
+        max-height: 240px;
+        object-fit: cover;
+        border-radius: var(--radius-md);
+        border: var(--border-width) solid var(--panel-border);
+        background: var(--void-900);
+      }
+
+      #window-snapshot[hidden] {
+        display: none;
+      }
+
+      .window-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+        align-items: center;
+      }
+
       .quiz-panel {
         margin-top: 0;
       }
@@ -594,8 +628,25 @@
       </section>
     </main>
 
+    <details class="visitor-panel window-panel" open>
+      <summary>Ablakkép</summary>
+      <div class="window-previews">
+        <video id="window-preview" playsinline autoplay muted></video>
+        <img id="window-snapshot" alt="" hidden />
+      </div>
+      <canvas id="window-canvas" hidden></canvas>
+      <div id="window-error" class="camera-error" hidden></div>
+      <div class="window-actions">
+        <button type="button" class="btn-neon" id="btn-window-camera">Kamera bekapcsolása</button>
+        <button type="button" class="btn-neon" id="btn-window-capture" disabled>Fotó készítése</button>
+        <button type="button" class="btn-neon btn-cta" id="btn-window-send" disabled>Feltöltés és küldés bigscreenre</button>
+        <button type="button" class="btn-neon" id="btn-window-retake" hidden>Újrafotózás</button>
+      </div>
+      <span id="window-status" class="badge-ok" hidden>Bigscreen frissítve</span>
+    </details>
+
     <details class="visitor-panel" open>
-      <summary>👥 Látogatók és kapcsolat</summary>
+      <summary> Látogatók és kapcsolat</summary>
       <section class="visitor-block" id="block-contact">
         <h3 class="visitor-block-title">Csoportkapcsolat</h3>
         <div id="email-rows"></div>
@@ -815,6 +866,7 @@
         }
 
         function stopCamera() {
+          stopWindowCamera();
           if (cameraStream) {
             cameraStream.getTracks().forEach(function (track) {
               track.stop();
@@ -830,6 +882,7 @@
 
         async function startCamera() {
           showCameraError("");
+          stopWindowCamera();
           stopCamera();
           if (!cameraSecure) {
             showPhotoFallback();
@@ -1179,6 +1232,210 @@
 
         updateVisitorButtons();
 
+        /* --- Ablakkép --- */
+
+        let windowStream = null;
+        let currentWindowBlob = null;
+        let windowSnapshotUrl = null;
+
+        const windowPreviewEl = document.getElementById("window-preview");
+        const windowSnapshotEl = document.getElementById("window-snapshot");
+        const windowCanvasEl = document.getElementById("window-canvas");
+        const windowErrorEl = document.getElementById("window-error");
+        const btnWindowCamera = document.getElementById("btn-window-camera");
+        const btnWindowCapture = document.getElementById("btn-window-capture");
+        const btnWindowSend = document.getElementById("btn-window-send");
+        const btnWindowRetake = document.getElementById("btn-window-retake");
+        const windowStatusEl = document.getElementById("window-status");
+        const windowPreviewsEl = document.querySelector(".window-previews");
+
+        function showWindowError(message) {
+          if (!windowErrorEl) return;
+          if (!message) {
+            windowErrorEl.hidden = true;
+            windowErrorEl.textContent = "";
+            return;
+          }
+          windowErrorEl.hidden = false;
+          windowErrorEl.textContent = message;
+        }
+
+        function updateWindowButtons() {
+          if (btnWindowCapture) {
+            btnWindowCapture.disabled = !windowStream;
+          }
+          if (btnWindowSend) {
+            btnWindowSend.disabled = !mqttConnected || !currentWindowBlob;
+          }
+          if (btnWindowCamera) {
+            btnWindowCamera.textContent = windowStream
+              ? "Kamera kikapcsolása"
+              : "Kamera bekapcsolása";
+          }
+        }
+
+        function stopWindowCamera() {
+          if (windowStream) {
+            windowStream.getTracks().forEach(function (track) {
+              track.stop();
+            });
+            windowStream = null;
+          }
+          if (windowPreviewEl) {
+            windowPreviewEl.srcObject = null;
+          }
+          updateWindowButtons();
+        }
+
+        async function startWindowCamera() {
+          showWindowError("");
+          stopWindowCamera();
+          stopCamera();
+          if (!cameraSecure) {
+            return null;
+          }
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            showWindowError("A böngésző nem támogatja a kamerát.");
+            return null;
+          }
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                facingMode: { ideal: "environment" },
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+              },
+            });
+            windowStream = stream;
+            if (windowPreviewEl) {
+              windowPreviewEl.srcObject = stream;
+              await windowPreviewEl.play();
+            }
+            updateWindowButtons();
+            return stream;
+          } catch (e1) {
+            try {
+              const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+              windowStream = stream;
+              if (windowPreviewEl) {
+                windowPreviewEl.srcObject = stream;
+                await windowPreviewEl.play();
+              }
+              updateWindowButtons();
+              return stream;
+            } catch (e2) {
+              showWindowError(cameraErrorText(e2));
+              throw e2;
+            }
+          }
+        }
+
+        function clearWindowSnapshot() {
+          if (windowSnapshotUrl) {
+            URL.revokeObjectURL(windowSnapshotUrl);
+            windowSnapshotUrl = null;
+          }
+          if (windowSnapshotEl) {
+            windowSnapshotEl.hidden = true;
+            windowSnapshotEl.removeAttribute("src");
+          }
+          currentWindowBlob = null;
+          if (windowStatusEl) windowStatusEl.hidden = true;
+          if (btnWindowRetake) btnWindowRetake.hidden = true;
+          updateWindowButtons();
+        }
+
+        function captureWindowSnapshot() {
+          if (!windowStream || !windowCanvasEl || !windowPreviewEl) return;
+          const video = windowPreviewEl;
+          const canvas = windowCanvasEl;
+          canvas.width = video.videoWidth || 1280;
+          canvas.height = video.videoHeight || 720;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob(
+            function (blob) {
+              if (!blob) return;
+              if (windowSnapshotUrl) {
+                URL.revokeObjectURL(windowSnapshotUrl);
+              }
+              currentWindowBlob = blob;
+              windowSnapshotUrl = URL.createObjectURL(blob);
+              if (windowSnapshotEl) {
+                windowSnapshotEl.src = windowSnapshotUrl;
+                windowSnapshotEl.hidden = false;
+              }
+              if (btnWindowRetake) btnWindowRetake.hidden = false;
+              if (windowStatusEl) windowStatusEl.hidden = true;
+              updateWindowButtons();
+            },
+            "image/jpeg",
+            0.92,
+          );
+        }
+
+        async function uploadWindowPhoto(blob) {
+          const Upload = window.NanoportalAdminUpload;
+          if (!Upload) throw new Error("upload modul hiányzik");
+          return Upload.uploadBlob(blob, "window");
+        }
+
+        async function sendWindowToBigscreen() {
+          if (!currentWindowBlob) return;
+          const origText = btnWindowSend ? btnWindowSend.textContent : "";
+          if (btnWindowSend) {
+            btnWindowSend.disabled = true;
+            btnWindowSend.textContent = "Küldés...";
+          }
+          try {
+            const path = await uploadWindowPhoto(currentWindowBlob);
+            await publish("bigscreen/photo", path);
+            await publish("bigscreen/layer", "photo");
+            if (windowStatusEl) {
+              windowStatusEl.hidden = false;
+              windowStatusEl.textContent = "✓ Bigscreen frissítve";
+            }
+          } catch (err) {
+            showWindowError(String(err && err.message ? err.message : err));
+          } finally {
+            if (btnWindowSend) btnWindowSend.textContent = origText;
+            updateWindowButtons();
+          }
+        }
+
+        if (windowPreviewsEl && !cameraSecure) {
+          windowPreviewsEl.innerHTML =
+            '<p class="error-banner">⚠️ A kamerához HTTPS szükséges.<br>' +
+            "Kérj segítséget az operátortól az URL megváltoztatásához.</p>";
+          if (btnWindowCamera) btnWindowCamera.disabled = true;
+          if (btnWindowCapture) btnWindowCapture.disabled = true;
+          if (btnWindowSend) btnWindowSend.disabled = true;
+        } else {
+          if (btnWindowCamera) {
+            btnWindowCamera.addEventListener("click", function () {
+              if (windowStream) {
+                stopWindowCamera();
+              } else {
+                startWindowCamera().catch(function () {});
+              }
+              updateWindowButtons();
+            });
+          }
+          if (btnWindowCapture) {
+            btnWindowCapture.addEventListener("click", captureWindowSnapshot);
+          }
+          if (btnWindowSend) {
+            btnWindowSend.addEventListener("click", function () {
+              sendWindowToBigscreen().catch(function () {});
+            });
+          }
+          if (btnWindowRetake) {
+            btnWindowRetake.addEventListener("click", clearWindowSnapshot);
+          }
+        }
+
+        updateWindowButtons();
+
         /* --- Kvíz szerkesztő --- */
 
         const MAX_QUIZ_QUESTIONS = 10;
@@ -1480,6 +1737,7 @@
               }
               updatePublishButtons();
               updateVisitorButtons();
+              updateWindowButtons();
               updateQuizEditorButtons();
             },
           });
