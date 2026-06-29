@@ -44,8 +44,14 @@ function default_state(): array
             'camera_feed_url' => '',
         ],
         'audio' => [
-            'last_triggered' => null,
-            'last_placeholder' => null,
+            'last_triggered' => ['clip' => null, 'url' => null, 'at' => null],
+            'last_placeholder' => [
+                'type' => null,
+                'names' => [],
+                'status' => 'idle',
+                'generated_url' => null,
+                'fallback_clip' => 'cheer_crowd.mp3',
+            ],
             'queue' => [],
         ],
         'hardware' => default_hardware(),

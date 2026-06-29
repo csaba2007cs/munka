@@ -6,6 +6,28 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, "..");
+
+function loadEnvFile(filePath) {
+  if (!fs.existsSync(filePath)) return;
+  for (const line of fs.readFileSync(filePath, "utf8").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq < 1) continue;
+    const key = trimmed.slice(0, eq).trim();
+    if (!key || process.env[key] != null) continue;
+    let val = trimmed.slice(eq + 1).trim();
+    if (
+      (val.startsWith('"') && val.endsWith('"')) ||
+      (val.startsWith("'") && val.endsWith("'"))
+    ) {
+      val = val.slice(1, -1);
+    }
+    process.env[key] = val;
+  }
+}
+loadEnvFile(path.join(root, ".env"));
+
 const stateFile = path.join(root, "data", "state.json");
 const stateLockFile = stateFile + ".lock";
 const dataDir = path.join(root, "data");
@@ -106,8 +128,14 @@ function defaultStateInline() {
       camera_feed_url: "",
     },
     audio: {
-      last_triggered: null,
-      last_placeholder: null,
+      last_triggered: { clip: null, url: null, at: null },
+      last_placeholder: {
+        type: null,
+        names: [],
+        status: "idle",
+        generated_url: null,
+        fallback_clip: "cheer_crowd.mp3",
+      },
       queue: [],
     },
     pending_registrations: [],
@@ -563,6 +591,80 @@ async function handleState(req, res) {
   sendJson(res, 405, { error: "Method not allowed" });
 }
 
+const TTS_FALLBACK_CLIP = "cheer_crowd.mp3";
+const ELEVENLABS_DEFAULT_VOICE_ID = "pNInz6obpgDQGcFmaJgB";
+
+function normalizeTtsNames(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((n) => String(n ?? "").trim()).filter(Boolean);
+}
+
+function patchAudioPlaceholder(state, placeholder) {
+  if (!isPlainObject(state.audio)) {
+    state.audio = defaultStateInline().audio;
+  }
+  const cur = isPlainObject(state.audio.last_placeholder) ? state.audio.last_placeholder : {};
+  state.audio.last_placeholder = { ...cur, ...placeholder };
+  return state;
+}
+
+function ttsOutputFilename() {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  const stamp = `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}_${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}`;
+  return `tts_${stamp}.mp3`;
+}
+
+async function handleTtsNames(names) {
+  modifyState((current) =>
+    patchAudioPlaceholder(current, {
+      type: "elevenlabs_names",
+      names,
+      status: "pending",
+      generated_url: null,
+      fallback_clip: TTS_FALLBACK_CLIP,
+    }),
+  );
+
+  const apiKey = String(process.env.ELEVENLABS_API_KEY ?? "").trim();
+  if (!apiKey) {
+    fs.mkdirSync(audioDir, { recursive: true });
+    const fallbackPath = path.join(audioDir, TTS_FALLBACK_CLIP);
+    if (!fs.existsSync(fallbackPath)) fs.writeFileSync(fallbackPath, "");
+    modifyState((current) =>
+      patchAudioPlaceholder(current, { status: "fallback", fallback_clip: TTS_FALLBACK_CLIP }),
+    );
+    return { ok: true, fallback: true, fallback_clip: TTS_FALLBACK_CLIP };
+  }
+
+  const voiceId = String(process.env.ELEVENLABS_VOICE_ID ?? ELEVENLABS_DEFAULT_VOICE_ID).trim();
+  const text = names.join(", ") + "!";
+  const apiUrl = `https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}`;
+  const res = await fetch(apiUrl, {
+    method: "POST",
+    headers: {
+      "xi-api-key": apiKey,
+      "Content-Type": "application/json",
+      Accept: "audio/mpeg",
+    },
+    body: JSON.stringify({ text, model_id: "eleven_multilingual_v2" }),
+  });
+  if (!res.ok) {
+    modifyState((current) => patchAudioPlaceholder(current, { status: "error" }));
+    return { error: `ElevenLabs HTTP ${res.status}`, status: 502 };
+  }
+
+  const bytes = Buffer.from(await res.arrayBuffer());
+  fs.mkdirSync(dataDir, { recursive: true });
+  const filename = ttsOutputFilename();
+  fs.writeFileSync(path.join(dataDir, filename), bytes);
+  const generatedUrl = "/data/" + encodeURIComponent(filename);
+  modifyState((current) =>
+    patchAudioPlaceholder(current, { status: "ready", generated_url: generatedUrl }),
+  );
+  return { ok: true, url: generatedUrl };
+}
+
 async function handleAudio(req, res) {
   if (req.method === "GET") {
     const clips = listAudioFiles().map((f) => ({
@@ -581,11 +683,38 @@ async function handleAudio(req, res) {
     try {
       payload = JSON.parse(raw || "{}");
     } catch {
-      sendJson(res, 400, { error: "Expected JSON: {\"clip\":\"filename.mp3\"}" });
+      sendJson(res, 400, { error: "Invalid JSON payload" });
       return;
     }
-    if (!payload || typeof payload.clip !== "string") {
-      sendJson(res, 400, { error: 'Expected JSON: {"clip":"filename.mp3"}' });
+    if (!payload || typeof payload !== "object") {
+      sendJson(res, 400, { error: "Invalid JSON payload" });
+      return;
+    }
+
+    if (payload.action === "tts_names") {
+      const names = normalizeTtsNames(payload.names);
+      if (names.length === 0) {
+        sendJson(res, 400, { error: "At least one name required" });
+        return;
+      }
+      try {
+        const result = await handleTtsNames(names);
+        if (result.error) {
+          sendJson(res, result.status || 502, { error: result.error });
+          return;
+        }
+        sendJson(res, 200, result);
+      } catch (e) {
+        modifyState((current) => patchAudioPlaceholder(current, { status: "error" }));
+        sendJson(res, 502, { error: String(e.message || e) });
+      }
+      return;
+    }
+
+    if (typeof payload.clip !== "string") {
+      sendJson(res, 400, {
+        error: 'Expected JSON: {"clip":"filename.mp3"} or {"action":"tts_names","names":[]}',
+      });
       return;
     }
     const clip = path.basename(payload.clip);

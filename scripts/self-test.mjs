@@ -152,6 +152,20 @@ async function testFullReset(baseUrl) {
   return { pass: state?.status === "IDLE", detail: `status = "${state?.status}"` };
 }
 
+async function testTtsNamesFallback(baseUrl) {
+  const res = await fetch(`${baseUrl}/api/audio.php`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "tts_names", names: ["ANNA"] }),
+  });
+  if (!res.ok) throw new Error(`POST audio HTTP ${res.status}`);
+  const data = await res.json();
+  return {
+    pass: data.fallback === true && data.fallback_clip === "cheer_crowd.mp3",
+    detail: `fallback=${data.fallback}, clip=${data.fallback_clip}`,
+  };
+}
+
 async function runIntegrationTest(label, fn) {
   try {
     handleIntegrationResult(label, await fn());
@@ -167,6 +181,9 @@ async function runIntegrationSuite() {
   await runIntegrationTest("visitors patch:", () => testVisitorsPatch(integrationBaseUrl));
   await runIntegrationTest("group_contact:", () => testGroupContactPatch(integrationBaseUrl));
   await runIntegrationTest("full reset:", () => testFullReset(integrationBaseUrl));
+  if (!String(process.env.ELEVENLABS_API_KEY ?? "").trim()) {
+    await runIntegrationTest("tts_names fallback:", () => testTtsNamesFallback(integrationBaseUrl));
+  }
 }
 
 const statePath = path.join(root, "data", "state.json");
@@ -341,6 +358,10 @@ if (!stateLibPhp.includes("default_hardware") || !stateLibPhp.includes("apply_ha
 if (!stateLibPhp.includes("default_screens") || !stateLibPhp.includes("ensure_mobilmozi_defaults")) {
   fail("api/state_lib.php: Mobilmozi v2 screens séma hiányzik");
 } else ok("api/state.php: screens + visitors default");
+
+if (!stateLibPhp.includes("fallback_clip") && !stateLibPhp.includes("elevenlabs_names")) {
+  fail("api/state_lib.php: audio placeholder séma hiányzik");
+} else ok("api/state_lib.php: audio placeholder schema");
 
 if (!statePhp.includes("state_lib.php")) {
   fail("api/state.php: state_lib.php require hiányzik");
@@ -612,6 +633,30 @@ if (
 ) {
   fail("admin/index.html: ablakkép bigscreen küldés hiányzik");
 } else ok("admin/index.html: window bigscreen publish");
+
+if (!adminHtml.includes("btn-tts-names") && !adminHtml.includes("Névfelolvasás")) {
+  fail("admin/index.html: névfelolvasás gomb hiányzik");
+} else ok("admin/index.html: TTS names button");
+
+const audioPhp = fs.readFileSync(path.join(root, "api", "audio.php"), "utf8");
+if (!audioPhp.includes("tts_names")) {
+  fail("api/audio.php: tts_names action hiányzik");
+} else ok("api/audio.php: tts_names action");
+
+const cheerCrowdPath = path.join(root, "shared", "assets", "audio", "cheer_crowd.mp3");
+if (!fs.existsSync(cheerCrowdPath)) {
+  fail("hiányzó: shared/assets/audio/cheer_crowd.mp3");
+} else ok("létezik: shared/assets/audio/cheer_crowd.mp3");
+
+const audioReadmePath = path.join(root, "shared", "assets", "audio", "README.md");
+if (!fs.existsSync(audioReadmePath)) {
+  fail("hiányzó: shared/assets/audio/README.md");
+} else {
+  const audioReadme = fs.readFileSync(audioReadmePath, "utf8");
+  if (!audioReadme.includes("cheer_crowd.mp3")) {
+    fail("shared/assets/audio/README.md: cheer_crowd.mp3 dokumentáció hiányzik");
+  } else ok("shared/assets/audio/README.md: cheer_crowd fallback doc");
+}
 
 const uploadPhp = fs.readFileSync(path.join(root, "api", "upload.php"), "utf8");
 if (!uploadPhp.includes("image/heic") || !uploadPhp.includes("10 * 1024 * 1024")) {

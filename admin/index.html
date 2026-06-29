@@ -192,7 +192,8 @@
       }
 
       .badge-ok,
-      .badge-err {
+      .badge-err,
+      .badge-warn {
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -215,8 +216,14 @@
         color: var(--text-bright);
       }
 
+      .badge-warn {
+        background: color-mix(in srgb, #f5a623 85%, var(--void-900));
+        color: var(--void-900);
+      }
+
       .badge-ok[hidden],
-      .badge-err[hidden] {
+      .badge-err[hidden],
+      .badge-warn[hidden] {
         display: none;
       }
 
@@ -676,6 +683,9 @@
           <button type="button" class="btn-neon btn-cta" id="btn-send-players" disabled>🎉 Küldés Bigscreenre</button>
           <button type="button" class="btn-neon" id="btn-clear-visitors">🗑 Látogatók törlése</button>
         </div>
+        <button type="button" class="btn-neon btn-cta" id="btn-tts-names" disabled>🎤 Névfelolvasás indítása</button>
+        <span id="tts-names-status" class="badge-ok" hidden></span>
+        <audio id="tts-names-player" hidden></audio>
       </section>
     </details>
 
@@ -838,6 +848,10 @@
         const btnAddVisitor = document.getElementById("btn-add-visitor");
         const btnSendPlayers = document.getElementById("btn-send-players");
         const btnClearVisitors = document.getElementById("btn-clear-visitors");
+        const btnTtsNames = document.getElementById("btn-tts-names");
+        const ttsNamesStatusEl = document.getElementById("tts-names-status");
+        const ttsNamesPlayerEl = document.getElementById("tts-names-player");
+        const TTS_NAMES_BTN_LABEL = "🎤 Névfelolvasás indítása";
 
         const cameraSecure =
           location.protocol === "https:" || location.hostname === "localhost";
@@ -1024,12 +1038,89 @@
           return out;
         }
 
+        function collectVisitorNames() {
+          const out = [];
+          for (const v of visitors) {
+            const name = String(v.nickname || "").trim().toUpperCase();
+            if (!name) continue;
+            out.push(name);
+            if (out.length >= MAX_VISITORS) break;
+          }
+          return out;
+        }
+
+        function showTtsNamesStatus(kind, message) {
+          if (!ttsNamesStatusEl) return;
+          if (!message) {
+            ttsNamesStatusEl.hidden = true;
+            ttsNamesStatusEl.textContent = "";
+            ttsNamesStatusEl.className = "badge-ok";
+            return;
+          }
+          ttsNamesStatusEl.hidden = false;
+          ttsNamesStatusEl.textContent = message;
+          if (kind === "ok") ttsNamesStatusEl.className = "badge-ok";
+          else if (kind === "warn") ttsNamesStatusEl.className = "badge-warn";
+          else ttsNamesStatusEl.className = "badge-err";
+        }
+
+        function playTtsAudio(src) {
+          if (!ttsNamesPlayerEl || !src) return;
+          ttsNamesPlayerEl.src = src;
+          void ttsNamesPlayerEl.play().catch(function () {});
+        }
+
+        async function startTtsNames() {
+          const names = collectVisitorNames();
+          if (names.length === 0) return;
+          const origLabel = btnTtsNames ? btnTtsNames.textContent : TTS_NAMES_BTN_LABEL;
+          if (btnTtsNames) {
+            btnTtsNames.disabled = true;
+            btnTtsNames.textContent = "🎤 Generálás...";
+          }
+          showTtsNamesStatus(null, "");
+          try {
+            const res = await fetch("/api/audio.php", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ action: "tts_names", names: names }),
+            });
+            const data = await res.json().catch(function () {
+              return {};
+            });
+            if (!res.ok) {
+              showTtsNamesStatus("err", "✕ Hiba: " + String(data.error || res.status));
+              return;
+            }
+            if (data.url) {
+              showTtsNamesStatus("ok", "✓ Hang kész");
+              playTtsAudio(data.url);
+            } else if (data.fallback) {
+              const clip = String(data.fallback_clip || "cheer_crowd.mp3");
+              showTtsNamesStatus("warn", "⚠ Fallback hang lejátszva");
+              playTtsAudio("/shared/assets/audio/" + encodeURIComponent(clip));
+            } else {
+              showTtsNamesStatus("err", "✕ Hiba: ismeretlen válasz");
+            }
+          } catch (err) {
+            showTtsNamesStatus("err", "✕ Hiba: " + String(err && err.message ? err.message : err));
+          } finally {
+            if (btnTtsNames) {
+              btnTtsNames.textContent = origLabel;
+              updateVisitorButtons();
+            }
+          }
+        }
+
         function updateVisitorButtons() {
           const contact = collectContact();
           const hasContact = contact.emails.length > 0 || contact.phones.length > 0;
           if (btnSendContact) btnSendContact.disabled = !mqttConnected || !hasContact;
           if (btnSendPlayers) {
             btnSendPlayers.disabled = !mqttConnected || buildPlayersPayload().length === 0;
+          }
+          if (btnTtsNames) {
+            btnTtsNames.disabled = collectVisitorNames().length === 0;
           }
           if (btnAddVisitor) btnAddVisitor.disabled = visitors.length >= MAX_VISITORS;
           if (btnAddEmail) btnAddEmail.disabled = emails.length >= MAX_CONTACT;
@@ -1226,7 +1317,14 @@
             pendingUploadIndex = null;
             stopCamera();
             renderVisitorRows();
+            showTtsNamesStatus(null, "");
             updateVisitorButtons();
+          });
+        }
+
+        if (btnTtsNames) {
+          btnTtsNames.addEventListener("click", function () {
+            startTtsNames().catch(function () {});
           });
         }
 

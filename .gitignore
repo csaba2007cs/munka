@@ -13,6 +13,7 @@ Thumbs.db
 # Secrets (if added later)
 .env
 .env.*
+!.env.example
 
 # Optional local assets (uncomment if you add large media and do not want them in git)
 # shared/assets/audio/
