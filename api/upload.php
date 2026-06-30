@@ -1,6 +1,12 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/state_lib.php';
+require_once __DIR__ . '/env.php';
+require_once __DIR__ . '/storage_lib.php';
+
+load_dotenv_if_present(dirname(__DIR__));
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
@@ -11,6 +17,8 @@ if ($method !== 'POST') {
     echo json_encode(['error' => 'POST required'], JSON_UNESCAPED_UNICODE);
     exit;
 }
+
+require_write_token();
 
 if (!isset($_FILES['photo']) || !is_array($_FILES['photo'])) {
     http_response_code(400);
@@ -97,6 +105,7 @@ if (in_array($mime, ['image/heic', 'image/heif'], true)) {
 
 $publicPath = '/data/' . rawurlencode($name);
 $mtime = filemtime($dest);
+prune_old_uploads($dataDir, $prefix, max_upload_files_for_kind($kind));
 echo json_encode([
     'ok' => true,
     'path' => $publicPath,

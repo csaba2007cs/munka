@@ -1,8 +1,25 @@
-import { createStateSync, formatStateTimestamp } from "/shared/js/state-sync.js";
+import { formatStateTimestamp } from "/shared/js/state-sync.js";
 
 const $ = (id) => document.getElementById(id);
 
+const MQTT_TOPICS = [
+  "bigscreen/video",
+  "bigscreen/layer",
+  "session/control",
+  "bigscreen/video/play",
+  "bigscreen/video/pause",
+  "bigscreen/video/reset",
+];
+
+let appState = {
+  status: "IDLE",
+  current_step: 1,
+  display: {},
+  audio: {},
+  updated_at: null,
+};
 let lastAudioKey = null;
+let mqttConnected = false;
 
 function asObject(v) {
   return typeof v === "object" && v !== null ? v : {};
@@ -33,10 +50,14 @@ function playWithSurface(el, label) {
   const p = el.play();
   if (p && typeof p.catch === "function") {
     p.catch((err) => {
-      const syncEl = $("display-sync");
-      if (syncEl) syncEl.textContent = `${label} // ${String(err?.message ?? err)}`;
+      setSyncLine(`${label} // ${String(err?.message ?? err)}`);
     });
   }
+}
+
+function setSyncLine(text) {
+  const el = $("display-sync");
+  if (el) el.textContent = text;
 }
 
 function ensureCamMjpegEl() {
@@ -54,7 +75,9 @@ function ensureCamMjpegEl() {
 }
 
 function render(state) {
-  const display = asObject(state.display);
+  appState = { ...appState, ...state, display: { ...asObject(appState.display), ...asObject(state.display) } };
+
+  const display = asObject(appState.display);
   const bgVideo = String(display.background_video ?? "");
   const bgAudio = String(display.background_audio ?? "");
   const camUrl = String(display.camera_feed_url ?? "");
@@ -140,7 +163,7 @@ function render(state) {
     }
   }
 
-  const audioState = asObject(state.audio);
+  const audioState = asObject(appState.audio);
   const triggered = asObject(audioState.last_triggered);
   const key = triggered.at && triggered.clip ? `${triggered.at}::${triggered.clip}` : null;
   if (key && key !== lastAudioKey) {
@@ -148,31 +171,94 @@ function render(state) {
     const url = typeof triggered.url === "string" ? triggered.url : "";
     if (url) {
       const oneShot = new Audio(url);
-      oneShot.play().catch((err) => {
-        const syncEl = $("display-sync");
-        if (syncEl) syncEl.textContent = `SFX // ${String(err?.message ?? err)}`;
-      });
+      oneShot.play().catch((err) => setSyncLine(`SFX // ${String(err?.message ?? err)}`));
     }
   }
 
   const hud = $("display-hud");
   if (hud) {
     hud.innerHTML = `
-      <div class="tag-pill">ÁLLAPOT · <strong>${String(state.status ?? "")}</strong></div>
-      <div class="tag-pill">LÉPÉS · <strong>${String(state.current_step ?? "")} / 4</strong></div>
+      <div class="tag-pill">ÁLLAPOT · <strong>${String(appState.status ?? "")}</strong></div>
+      <div class="tag-pill">LÉPÉS · <strong>${String(appState.current_step ?? "")} / 4</strong></div>
     `;
   }
 
-  const el = $("display-sync");
-  if (el) el.textContent = `UPDATED // ${formatStateTimestamp(state.updated_at)}`;
+  const mode = mqttConnected ? "MQTT" : "INIT";
+  setSyncLine(`${mode} // ${formatStateTimestamp(appState.updated_at)}`);
 }
 
-const sync = createStateSync({
-  onState: render,
-  onError: (e) => {
-    const el = $("display-sync");
-    if (el) el.textContent = `ERROR // ${String(e)}`;
-  },
-});
+function applySessionControl(cmd) {
+  const c = String(cmd ?? "").trim().toLowerCase();
+  if (c === "start") appState.status = "RUNNING";
+  else if (c === "pause") appState.status = "PAUSED";
+  else if (c === "complete") appState.status = "COMPLETED";
+  else if (c === "stop" || c === "reset") {
+    appState.status = "IDLE";
+    if (c === "reset") appState.current_step = 1;
+  }
+  appState.updated_at = new Date().toISOString();
+  render(appState);
+}
 
-sync.startPolling();
+function handleMqttTopic(topic, text) {
+  const payload = String(text ?? "").trim();
+  switch (topic) {
+    case "bigscreen/video":
+      appState.display = { ...asObject(appState.display), background_video: payload };
+      appState.updated_at = new Date().toISOString();
+      render(appState);
+      break;
+    case "bigscreen/layer":
+      setSyncLine(`MQTT // layer ${payload}`);
+      break;
+    case "session/control":
+      applySessionControl(payload);
+      break;
+    case "bigscreen/video/play":
+      playWithSurface($("bg-video"), "VIDEO");
+      break;
+    case "bigscreen/video/pause":
+      $("bg-video")?.pause();
+      break;
+    case "bigscreen/video/reset": {
+      const v = $("bg-video");
+      if (v) {
+        v.pause();
+        try {
+          v.currentTime = 0;
+        } catch (_) {}
+      }
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+async function loadInitialState() {
+  const res = await fetch("/api/state.php", { cache: "no-store" });
+  if (!res.ok) throw new Error(`GET /api/state.php failed: ${res.status}`);
+  appState = await res.json();
+  render(appState);
+}
+
+const Mqtt = globalThis.NanoportalMqtt;
+
+void loadInitialState().catch((e) => setSyncLine(`ERROR // ${String(e)}`));
+
+if (!Mqtt) {
+  setSyncLine("ERROR // mqtt-client.js not loaded");
+} else {
+  Mqtt.connect({
+    topics: MQTT_TOPICS,
+    onMessage: handleMqttTopic,
+    onStatus(state) {
+      mqttConnected = state === "connected";
+      if (state === "connected") {
+        setSyncLine(`MQTT // ${formatStateTimestamp(appState.updated_at)}`);
+      } else if (state === "error") {
+        setSyncLine("MQTT // connection error");
+      }
+    },
+  });
+}

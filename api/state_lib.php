@@ -59,6 +59,7 @@ function default_state(): array
         'visitors' => [],
         'group_contact' => default_group_contact(),
         'updated_at' => null,
+        '_rev' => 0,
     ];
 }
 
@@ -208,8 +209,43 @@ function decode_state_raw(string $raw): array
         return default_state();
     }
     $decoded = json_decode($raw, true);
+    if (!is_array($decoded) || json_last_error() !== JSON_ERROR_NONE) {
+        error_log('state.json corrupt, resetting to default');
 
-    return ensure_mobilmozi_defaults(is_array($decoded) ? $decoded : default_state());
+        return default_state();
+    }
+
+    return ensure_mobilmozi_defaults($decoded);
+}
+
+/** Sentinel returned by mutator when optimistic _rev check fails. */
+function state_conflict_result(int $currentRev): array
+{
+    return ['__state_conflict__' => true, 'current_rev' => $currentRev];
+}
+
+function is_state_conflict(mixed $result): bool
+{
+    return is_array($result) && !empty($result['__state_conflict__']);
+}
+
+function strip_rev_from_patch(array $patch): array
+{
+    unset($patch['_rev']);
+
+    return $patch;
+}
+
+function check_patch_rev(array $current, array $patch): ?array
+{
+    if (!array_key_exists('_rev', $patch)) {
+        return null;
+    }
+    if ((int) $patch['_rev'] !== (int) ($current['_rev'] ?? 0)) {
+        return state_conflict_result((int) ($current['_rev'] ?? 0));
+    }
+
+    return null;
 }
 
 function load_state(string $path): array
@@ -225,36 +261,64 @@ function load_state(string $path): array
     return decode_state_raw($raw);
 }
 
-function write_state_fp($fp, array $state): bool
+function state_etag(array $state): string
+{
+    $rev = (int) ($state['_rev'] ?? 0);
+    if ($rev > 0) {
+        return '"' . $rev . '"';
+    }
+    $json = json_encode($state, JSON_UNESCAPED_UNICODE);
+
+    return '"' . md5($json !== false ? $json : '') . '"';
+}
+
+function send_state_get_headers(array $state): string
+{
+    $etag = state_etag($state);
+    header('ETag: ' . $etag);
+    $updated = $state['updated_at'] ?? null;
+    if (is_string($updated) && $updated !== '') {
+        $ts = strtotime($updated);
+        if ($ts !== false) {
+            header('Last-Modified: ' . gmdate('D, d M Y H:i:s', $ts) . ' GMT');
+        }
+    }
+
+    return $etag;
+}
+
+function atomic_write_state(string $path, array $state): bool
 {
     $state['updated_at'] = gmdate('c');
     $json = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     if ($json === false) {
         return false;
     }
-    rewind($fp);
-    ftruncate($fp, 0);
-    if (fwrite($fp, $json) === false) {
+    $tmp = $path . '.tmp.' . getmypid();
+    if (file_put_contents($tmp, $json) === false) {
+        @unlink($tmp);
+
         return false;
     }
-    fflush($fp);
+    if (!rename($tmp, $path)) {
+        @unlink($tmp);
+
+        return false;
+    }
 
     return true;
 }
 
 function save_state(string $path, array $state): bool
 {
-    $state['updated_at'] = gmdate('c');
-    $json = json_encode($state, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
-    if ($json === false) {
-        return false;
-    }
-    $tmp = $path . '.tmp';
-    if (file_put_contents($tmp, $json, LOCK_EX) === false) {
-        return false;
-    }
+    return atomic_write_state($path, $state);
+}
 
-    return rename($tmp, $path);
+function bump_state_rev(array $state, array $current): array
+{
+    $state['_rev'] = ((int) ($current['_rev'] ?? 0)) + 1;
+
+    return $state;
 }
 
 /**
@@ -296,8 +360,15 @@ function modify_state_locked(string $path, callable $mutator)
 
         return null;
     }
+    if (is_state_conflict($next)) {
+        flock($fp, LOCK_UN);
+        fclose($fp);
+
+        return $next;
+    }
     $next = ensure_mobilmozi_defaults($next);
-    if (!write_state_fp($fp, $next)) {
+    $next = bump_state_rev($next, $current);
+    if (!atomic_write_state($path, $next)) {
         flock($fp, LOCK_UN);
         fclose($fp);
 
@@ -351,4 +422,30 @@ function apply_quiz_answer_lock(array $current, array $patch, array $merged): ar
     $merged['quiz_state']['feedback_visible'] = !empty($qs['feedback_visible']);
 
     return $merged;
+}
+
+function require_write_token(): void
+{
+    $token = getenv('NANOPORTAL_API_TOKEN');
+    if ($token === false || $token === '') {
+        return;
+    }
+    $header = (string) ($_SERVER['HTTP_X_NANOPORTAL_TOKEN'] ?? '');
+    if (!hash_equals((string) $token, $header)) {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'unauthorized'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
+
+function require_admin_header(): void
+{
+    $admin = trim((string) ($_SERVER['HTTP_X_NANOPORTAL_ADMIN'] ?? ''));
+    if ($admin !== '1') {
+        http_response_code(403);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => 'admin_required'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
 }

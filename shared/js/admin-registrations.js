@@ -1,5 +1,5 @@
 /**
- * Pending registration queue for MQTT admin (poll + import into players).
+ * Pending registration queue for MQTT admin (MQTT push + HTTP fallback).
  */
 (function (global) {
   async function fetchPending() {
@@ -9,9 +9,13 @@
   }
 
   async function patchState(body) {
+    const Auth = global.NanoportalAuth;
+    const headers = Auth
+      ? Auth.buildWriteHeaders({ admin: true })
+      : { "Content-Type": "application/json" };
     const res = await fetch("/api/state.php", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(body),
     });
     if (!res.ok) {
@@ -30,38 +34,52 @@
     }
   }
 
+  function renderPendingList(listEl, pending) {
+    if (!listEl) return;
+    listEl.innerHTML = "";
+    if (!pending.length) {
+      const p = document.createElement("p");
+      p.className = "section-lead";
+      p.textContent = "Nincs függő regisztráció.";
+      listEl.appendChild(p);
+      return;
+    }
+    const ul = document.createElement("ul");
+    ul.className = "pending-list";
+    for (const row of pending) {
+      const li = document.createElement("li");
+      const name = String(row.name ?? "").trim() || "—";
+      const at = row.at ? " · " + formatAt(row.at) : "";
+      li.textContent = name + at;
+      ul.appendChild(li);
+    }
+    listEl.appendChild(ul);
+  }
+
   function init(opts) {
     const listEl = opts.listEl;
     const toast = opts.onToast || function () {};
 
     async function refresh() {
-      if (!listEl) return;
       try {
-        const pending = await fetchPending();
-        listEl.innerHTML = "";
-        if (!pending.length) {
-          const p = document.createElement("p");
-          p.className = "section-lead";
-          p.textContent = "Nincs függő regisztráció.";
-          listEl.appendChild(p);
-          return;
-        }
-        const ul = document.createElement("ul");
-        ul.className = "pending-list";
-        for (const row of pending) {
-          const li = document.createElement("li");
-          const name = String(row.name ?? "").trim() || "—";
-          const at = row.at ? " · " + formatAt(row.at) : "";
-          li.textContent = name + at;
-          ul.appendChild(li);
-        }
-        listEl.appendChild(ul);
+        renderPendingList(listEl, await fetchPending());
       } catch (e) {
+        if (!listEl) return;
         listEl.innerHTML = "";
         const p = document.createElement("p");
         p.className = "field-error";
         p.textContent = String(e.message || e);
         listEl.appendChild(p);
+      }
+    }
+
+    function refreshFromMqtt(text) {
+      try {
+        const data = JSON.parse(String(text ?? ""));
+        const pending = Array.isArray(data.pending_registrations) ? data.pending_registrations : [];
+        renderPendingList(listEl, pending);
+      } catch {
+        void refresh();
       }
     }
 
@@ -109,12 +127,14 @@
     opts.clearBtn?.addEventListener("click", () => void clearPending().catch((e) => toast(String(e.message || e), false)));
 
     refresh();
-    const pollMs = opts.pollMs ?? 4000;
+    const pollMs = opts.pollMs ?? 30000;
     global.setInterval(refresh, pollMs);
     global.document.addEventListener("visibilitychange", () => {
       if (!global.document.hidden) refresh();
     });
+
+    return { refresh, refreshFromMqtt };
   }
 
-  global.NanoportalAdminRegistrations = { init };
+  global.NanoportalAdminRegistrations = { init, fetchPending };
 })(window);

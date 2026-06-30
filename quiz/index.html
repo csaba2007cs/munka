@@ -1,180 +1,19 @@
 <!DOCTYPE html>
-<html lang="hu" class="quiz-page">
+<html lang="hu">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>NANOPORTAL — Kutatói terminál</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800&family=Rajdhani:wght@500;600&family=Roboto+Mono:wght@400;500&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="/shared/css/theme.css" />
-    <link rel="stylesheet" href="/shared/css/components.css" />
-    <link rel="stylesheet" href="/quiz/quiz.css" />
+    <title>NANOPORTAL — Átirányítás</title>
+    <meta http-equiv="refresh" content="0; url=/smallscreen/" />
+    <link rel="canonical" href="/smallscreen/" />
+    <script>
+      console.warn(
+        "[Nanoportal] /quiz/ legacy URL — use /smallscreen/ (MQTT kvíz terminál). Redirecting…",
+      );
+      location.replace("/smallscreen/");
+    </script>
   </head>
   <body>
-    <div class="app-frame quiz-root">
-      <header class="quiz-topbar" aria-label="Fejléc">
-        <div class="topbar-left">
-          <div class="brand-lockup">
-            <div class="hex-logo" aria-hidden="true">
-              <svg viewBox="0 0 56 64" width="48" height="55" focusable="false">
-                <defs>
-                  <linearGradient id="hx" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0" stop-color="#1a3a52" />
-                    <stop offset="1" stop-color="#051018" />
-                  </linearGradient>
-                </defs>
-                <path
-                  fill="url(#hx)"
-                  stroke="rgba(0,191,255,0.65)"
-                  stroke-width="1.5"
-                  d="M28 2 L52 16 L52 44 L28 58 L4 44 L4 16 Z"
-                />
-                <text
-                  x="28"
-                  y="38"
-                  text-anchor="middle"
-                  fill="#00bfff"
-                  font-family="Orbitron, sans-serif"
-                  font-size="22"
-                  font-weight="800"
-                  style="text-shadow: 0 0 8px rgba(0,191,255,0.8)"
-                >
-                  N
-                </text>
-              </svg>
-            </div>
-            <div class="brand-copy">
-              <p class="brand-kicker">NANOPORTAL // KUTATÓI TERMINÁL</p>
-              <h1 class="hero-title" id="hero-title">KIKÉPZÉSI MODUL LEZÁRVA</h1>
-              <p class="hero-subtitle" id="hero-subtitle">Kutatói alkalmassági ellenőrzés folyamatban</p>
-            </div>
-          </div>
-          <p class="sync-strip" id="sync-status" aria-live="polite">SYNC // …</p>
-        </div>
-        <div class="topbar-right">
-          <div class="step-readout" id="step-label">1 / 4</div>
-          <div class="node-track" aria-label="Lépés folyamat">
-            <div class="node" id="node-1" data-step="1">1</div>
-            <span class="node-link" aria-hidden="true"></span>
-            <div class="node" id="node-2" data-step="2">2</div>
-            <span class="node-link" aria-hidden="true"></span>
-            <div class="node" id="node-3" data-step="3">3</div>
-            <span class="node-link" aria-hidden="true"></span>
-            <div class="node" id="node-4" data-step="4">4</div>
-          </div>
-        </div>
-      </header>
-
-      <div class="quiz-body">
-        <div class="quiz-main-col">
-          <section class="codex-shell" aria-labelledby="question-text">
-            <div class="codex-chrome">
-              <div class="codex-cut codex-cut--tl" aria-hidden="true"></div>
-              <div class="codex-cut codex-cut--tr" aria-hidden="true"></div>
-              <div class="codex-cut codex-cut--bl" aria-hidden="true"></div>
-              <div class="codex-cut codex-cut--br" aria-hidden="true"></div>
-              <div class="codex-inner">
-                <p class="task-label" id="task-label">1. FELADAT</p>
-                <h2 class="question-lede" id="question-text">Melyik faj tojásából kell mintát szereznetek?</h2>
-                <div class="choice-stack" id="choice-grid"></div>
-
-                <div class="feedback-dock" id="feedback" role="status" aria-live="polite">
-                  <div class="feedback-glow" aria-hidden="true"></div>
-                  <div class="feedback-icon" aria-hidden="true">✓</div>
-                  <div class="feedback-copy">
-                    <div class="feedback-kicker">HELYES</div>
-                    <div class="feedback-line">A célpont azonosítva.</div>
-                    <div class="feedback-hint" id="feedback-hint"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <footer class="quiz-footer">
-            <div class="footer-left">
-              <svg class="dna-icon" viewBox="0 0 40 40" width="40" height="40" aria-hidden="true" focusable="false">
-                <circle cx="20" cy="20" r="18" fill="none" stroke="rgba(0,191,255,0.35)" stroke-width="1" />
-                <path
-                  fill="none"
-                  stroke="#39ff14"
-                  stroke-width="1.4"
-                  stroke-linecap="round"
-                  d="M12 8 Q20 14 28 8 M12 14 Q20 20 28 14 M12 20 Q20 26 28 20 M12 26 Q20 32 28 26 M12 32 Q20 38 28 32"
-                />
-                <path
-                  fill="none"
-                  stroke="#00bfff"
-                  stroke-width="1.2"
-                  stroke-linecap="round"
-                  d="M28 8 Q20 14 12 8 M28 14 Q20 20 12 14 M28 20 Q20 26 12 20 M28 26 Q20 32 12 26 M28 32 Q20 38 12 32"
-                />
-              </svg>
-              <p class="footer-quote" id="footer-left">A múltban nincs második esély.</p>
-            </div>
-            <div class="footer-actions" id="footer-actions" data-primed="0">
-              <span class="chevrons" aria-hidden="true"><span></span><span></span><span></span></span>
-              <div class="btn-next-wrap">
-                <button
-                  type="button"
-                  class="btn-tovabb"
-                  id="btn-next"
-                  aria-describedby="btn-next-hint"
-                >
-                  TOVÁBB
-                </button>
-                <p class="btn-next-hint" id="btn-next-hint"></p>
-              </div>
-            </div>
-          </footer>
-        </div>
-
-        <aside class="rail-panel" aria-labelledby="sidebar-title">
-          <h3 class="rail-title" id="sidebar-title">VIZSGA FOLYAMAT</h3>
-          <ul class="rail-timeline" id="sidebar-list"></ul>
-
-          <div class="hud-panel">
-            <div class="hud-bracket" aria-hidden="true">
-              <span class="brk b1"></span><span class="brk b2"></span><span class="brk b3"></span>
-            </div>
-            <div class="hud-body">
-              <div class="hud-egg-wrap">
-                <svg class="egg-wire" viewBox="0 0 80 100" width="72" height="90" aria-hidden="true" focusable="false">
-                  <defs>
-                    <linearGradient id="eggWireGrad" x1="0.5" y1="0" x2="0.5" y2="1">
-                      <stop offset="0" stop-color="rgba(0,191,255,0.9)" />
-                      <stop offset="1" stop-color="rgba(0,191,255,0.15)" />
-                    </linearGradient>
-                  </defs>
-                  <ellipse cx="40" cy="52" rx="26" ry="36" fill="none" stroke="url(#eggWireGrad)" stroke-width="1.6" />
-                  <path d="M22 38 L58 46 M20 52 L60 52 M22 66 L58 58" fill="none" stroke="rgba(0,191,255,0.45)" stroke-width="1" />
-                  <ellipse cx="40" cy="52" rx="14" ry="22" fill="none" stroke="rgba(57,255,20,0.25)" stroke-width="0.8" />
-                </svg>
-              </div>
-              <div class="hud-meta">
-                <p class="hud-tagline">TOJÁS AZONOSÍTVA</p>
-                <canvas class="hud-wave" id="waveform" width="640" height="120" aria-hidden="true"></canvas>
-                <div class="hud-scan">
-                  <div class="hud-scan-row">
-                    <span class="hud-scan-full" id="scan-label">SZKENNELÉS 97%</span>
-                  </div>
-                  <div class="hud-scan-bar"><div class="hud-scan-fill" id="scan-fill"></div></div>
-                </div>
-                <p class="hud-sys" id="hud-footer">NP-SYS // MISSION MODULE</p>
-              </div>
-            </div>
-            <div class="hud-bracket hud-bracket--flip" aria-hidden="true">
-              <span class="brk b1"></span><span class="brk b2"></span><span class="brk b3"></span>
-            </div>
-          </div>
-        </aside>
-      </div>
-    </div>
-
-    <script type="module" src="/quiz/quiz.js"></script>
+    <p>Átirányítás a kutatói terminálra: <a href="/smallscreen/">/smallscreen/</a></p>
   </body>
 </html>

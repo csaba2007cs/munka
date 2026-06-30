@@ -2,11 +2,17 @@
  * Multipart upload helper for MQTT admin (welcome / visitor photos).
  */
 (function (global) {
+  function writeHeaders(admin) {
+    const Auth = global.NanoportalAuth;
+    if (Auth) return Auth.buildWriteHeaders({ contentType: false, admin: admin !== false });
+    return {};
+  }
+
   async function uploadBlob(blob, kind) {
     const fd = new FormData();
     fd.append("photo", blob, "capture.jpg");
     fd.append("kind", kind || "visitor");
-    const res = await fetch("/api/upload.php", { method: "POST", body: fd });
+    const res = await fetch("/api/upload.php", { method: "POST", headers: writeHeaders(), body: fd });
     const json = await res.json();
     if (!json.ok) throw new Error(json.error || "Feltöltés sikertelen");
     return String(json.path ?? "");

@@ -1,3 +1,5 @@
+import { createStateSync } from "/shared/js/state-sync.js";
+
 const form = document.getElementById("reg-form");
 const nameInput = document.getElementById("reg-name");
 const msg = document.getElementById("reg-msg");
@@ -9,6 +11,22 @@ function setMsg(text, isErr) {
   msg.classList.toggle("is-err", Boolean(isErr));
 }
 
+const sync = createStateSync({
+  onState(state) {
+    const open = state.status === "IDLE" || state.status === "PAUSED";
+    if (nameInput) nameInput.disabled = !open;
+    if (submitBtn && !submitBtn.dataset.busy) submitBtn.disabled = !open;
+    if (!open && msg && !msg.textContent) {
+      setMsg("A regisztráció jelenleg zárva — az élmény fut vagy lezárult.", false);
+    }
+  },
+  onError() {
+    /* registration form still works without live state */
+  },
+});
+
+sync.startSync();
+
 form?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const name = (nameInput?.value ?? "").trim();
@@ -16,7 +34,10 @@ form?.addEventListener("submit", async (e) => {
     setMsg("Adj meg nevet.", true);
     return;
   }
-  if (submitBtn) submitBtn.disabled = true;
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.dataset.busy = "1";
+  }
   setMsg("Küldés…", false);
   try {
     const res = await fetch("/api/register.php", {
@@ -34,6 +55,7 @@ form?.addEventListener("submit", async (e) => {
   } catch (err) {
     setMsg("Hálózati hiba — próbáld újra.", true);
   } finally {
-    if (submitBtn) submitBtn.disabled = false;
+    if (submitBtn) delete submitBtn.dataset.busy;
+    void sync.pull();
   }
 });

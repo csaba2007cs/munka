@@ -1,21 +1,4 @@
-import { createStateSync } from "/shared/js/state-sync.js";
-import { initQuizPanel } from "/shared/js/quiz-panel.js";
-
-const sync = createStateSync({
-  onState: (state) => panel.render(state),
-  onError: (e) => {
-    const el = document.getElementById("sync-status");
-    if (el) {
-      el.textContent = `SYNC ERROR // ${String(e)}`;
-      el.dataset.link = "err";
-    }
-  },
-});
-
-const panel = initQuizPanel({
-  root: document,
-  sync,
-  touchEnabled: true,
-});
-
-sync.startPolling();
+/**
+ * @deprecated v2.0 — /quiz/ redirects to /smallscreen/. Kept for backward-compat bookmarks only.
+ */
+console.warn("[Nanoportal] quiz/quiz.js is deprecated. Open /smallscreen/ instead.");

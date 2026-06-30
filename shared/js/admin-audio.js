@@ -2,6 +2,11 @@
  * Audio clip trigger panel for MQTT admin.
  */
 (function (global) {
+  function writeHeaders() {
+    const Auth = global.NanoportalAuth;
+    return Auth ? Auth.buildWriteHeaders({ admin: true }) : { "Content-Type": "application/json" };
+  }
+
   async function init(opts) {
     const grid = opts.gridEl;
     const toast = opts.onToast || function () {};
@@ -20,7 +25,7 @@
         btn.addEventListener("click", () => {
           void fetch("/api/audio.php", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: writeHeaders(),
             body: JSON.stringify({ clip: c.file }),
           })
             .then((r) => {

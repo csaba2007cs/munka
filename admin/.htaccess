@@ -1,0 +1,10 @@
+# Nanoportal operator UI — HTTP Basic Auth
+# Generate credentials (adjust absolute path to your deploy root):
+#   htpasswd -c /var/www/html/admin/.htpasswd operator
+#
+# Apache requires an absolute path for AuthUserFile (example below).
+
+AuthType Basic
+AuthName "Nanoportal Operator"
+AuthUserFile /var/www/html/admin/.htpasswd
+Require valid-user

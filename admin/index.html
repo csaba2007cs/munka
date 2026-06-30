@@ -79,6 +79,30 @@
         color: var(--danger);
       }
 
+      #storage-badge {
+        margin: 0;
+        font-family: var(--font-mono);
+        font-size: var(--text-sm);
+        padding: var(--space-1) var(--space-2);
+        border-radius: var(--radius-sm);
+        border: var(--border-width) solid var(--panel-border);
+        white-space: nowrap;
+      }
+
+      #storage-badge.badge-ok {
+        color: var(--cyan-400);
+      }
+
+      #storage-badge.badge-warn {
+        color: var(--warning, #e6a817);
+        border-color: color-mix(in srgb, var(--warning, #e6a817) 40%, transparent);
+      }
+
+      #storage-badge.badge-err {
+        color: var(--danger);
+        border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+      }
+
       #broker-url {
         font-family: var(--font-mono);
         font-size: var(--text-xs);
@@ -535,7 +559,9 @@
       }
     </style>
     <script src="https://unpkg.com/mqtt@5.10.4/dist/mqtt.min.js"></script>
+    <script src="/shared/js/api-auth.js"></script>
     <script src="/shared/js/admin-upload.js"></script>
+    <script src="/shared/js/admin-registrations.js"></script>
     <script src="/shared/js/mqtt-client.js"></script>
   </head>
   <body class="admin-shell">
@@ -543,7 +569,10 @@
       <h1 class="admin-title">Nanoportal operátor</h1>
       <div class="admin-header-mqtt">
         <p id="mqtt-status" role="status">○ MQTT: kapcsolódás...</p>
+        <span id="storage-badge" class="badge-ok" role="status">—</span>
         <button type="button" id="btn-broker" class="btn-neon btn-broker">BROKER?</button>
+        <button type="button" id="btn-api-token" class="btn-neon btn-broker">TOKEN?</button>
+        <button type="button" id="btn-mqtt-auth" class="btn-neon btn-broker">MQTT AUTH?</button>
         <span id="broker-url" aria-hidden="true"></span>
       </div>
     </header>
@@ -635,6 +664,18 @@
       </section>
     </main>
 
+    <details class="visitor-panel" open>
+      <summary>Függő regisztrációk (/register/)</summary>
+      <section class="visitor-block">
+        <p class="section-lead">Látogatói tabletek HTTP POST-tal küldenek — MQTT <code>session/registrations</code> frissítés.</p>
+        <div id="pending-registrations-list"></div>
+        <div class="visitor-actions">
+          <button type="button" class="btn-neon btn-cta" id="btn-import-registrations">Importálás játékosokba</button>
+          <button type="button" class="btn-neon" id="btn-clear-pending-registrations">Függő törlése</button>
+        </div>
+      </section>
+    </details>
+
     <details class="visitor-panel window-panel" open>
       <summary>Ablakkép</summary>
       <div class="window-previews">
@@ -717,13 +758,16 @@
 
     <script>
       (function () {
-        /* LEGACY: state.php admin — megtartva referenciának, lásd admin/admin.js */
+        /* Nanoportal v2 MQTT operátor — legacy admin: see legacy/admin.js */
 
         const ADMIN_TOPICS = [
           "smallscreen/quiz/result",
           "bigscreen/layer",
           "smallscreen/layer",
+          "session/registrations",
         ];
+
+        let registrationsUi = null;
 
         const Mqtt = window.NanoportalMqtt;
         let mqttClient = null;
@@ -732,6 +776,7 @@
         let activeSmallLayer = "";
 
         const mqttStatusEl = document.getElementById("mqtt-status");
+        const storageBadgeEl = document.getElementById("storage-badge");
         const quizResultLineEl = document.getElementById("quiz-result-line");
         const brokerUrlEl = document.getElementById("broker-url");
         const btnBroker = document.getElementById("btn-broker");
@@ -753,6 +798,45 @@
         function updateBrokerLabel() {
           if (!brokerUrlEl || !Mqtt) return;
           brokerUrlEl.textContent = Mqtt.brokerUrl();
+        }
+
+        const STORAGE_WARN_BYTES = 500 * 1024 * 1024;
+        let storageTimer = null;
+
+        function applyStorageBadge(data) {
+          if (!storageBadgeEl || !data) return;
+          storageBadgeEl.textContent =
+            String(data.data_dir_human || "?") + " / " + String(data.disk_free_human || "?") + " free";
+          storageBadgeEl.classList.remove("badge-ok", "badge-warn", "badge-err");
+          const dataBytes = Number(data.data_dir_bytes) || 0;
+          const freeBytes = Number(data.disk_free_bytes) || 0;
+          if (freeBytes > 0 && freeBytes < STORAGE_WARN_BYTES) {
+            storageBadgeEl.classList.add("badge-err");
+          } else if (dataBytes > STORAGE_WARN_BYTES) {
+            storageBadgeEl.classList.add("badge-warn");
+          } else {
+            storageBadgeEl.classList.add("badge-ok");
+          }
+        }
+
+        async function refreshStorageBadge() {
+          try {
+            const res = await fetch("/api/storage.php", { cache: "no-store" });
+            if (!res.ok) return;
+            applyStorageBadge(await res.json());
+          } catch (_) {
+            if (storageBadgeEl) {
+              storageBadgeEl.textContent = "storage ?";
+              storageBadgeEl.classList.remove("badge-ok", "badge-warn");
+              storageBadgeEl.classList.add("badge-err");
+            }
+          }
+        }
+
+        function startStoragePolling() {
+          void refreshStorageBadge();
+          if (storageTimer) return;
+          storageTimer = window.setInterval(refreshStorageBadge, 60000);
         }
 
         function updatePublishButtons() {
@@ -795,6 +879,10 @@
           if (topic === "smallscreen/layer") {
             activeSmallLayer = t;
             syncLayerButtons("smallscreen");
+            return;
+          }
+          if (topic === "session/registrations") {
+            registrationsUi?.refreshFromMqtt(text);
             return;
           }
           if (topic !== "smallscreen/quiz/result") return;
@@ -1080,9 +1168,13 @@
           }
           showTtsNamesStatus(null, "");
           try {
+            const Auth = window.NanoportalAuth;
+            const headers = Auth
+              ? Auth.buildWriteHeaders({ admin: true })
+              : { "Content-Type": "application/json" };
             const res = await fetch("/api/audio.php", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers,
               body: JSON.stringify({ action: "tts_names", names: names }),
             });
             const data = await res.json().catch(function () {
@@ -1813,7 +1905,50 @@
           });
         }
 
+        const btnApiToken = document.getElementById("btn-api-token");
+        if (btnApiToken && window.NanoportalAuth) {
+          btnApiToken.addEventListener("click", function () {
+            const cur = window.NanoportalAuth.getApiToken() || "";
+            const token = window.prompt("API token (NANOPORTAL_API_TOKEN):", cur);
+            if (token == null) return;
+            try {
+              localStorage.setItem(window.NanoportalAuth.LS_TOKEN_KEY, String(token).trim());
+            } catch (_) {}
+            location.reload();
+          });
+        }
+
+        const btnMqttAuth = document.getElementById("btn-mqtt-auth");
+        if (btnMqttAuth && Mqtt) {
+          btnMqttAuth.addEventListener("click", function () {
+            const creds = Mqtt.mqttCredentials();
+            const user = window.prompt("MQTT felhasználó:", creds ? creds.username : "admin");
+            if (user == null || !String(user).trim()) return;
+            const pass = window.prompt("MQTT jelszó:", creds ? creds.password : "");
+            if (pass == null) return;
+            try {
+              localStorage.setItem(Mqtt.LS_MQTT_USER_KEY, String(user).trim());
+              localStorage.setItem(Mqtt.LS_MQTT_PASS_KEY, String(pass));
+            } catch (_) {}
+            location.reload();
+          });
+        }
+
         updateBrokerLabel();
+        startStoragePolling();
+
+        if (window.NanoportalAdminRegistrations) {
+          registrationsUi = window.NanoportalAdminRegistrations.init({
+            listEl: document.getElementById("pending-registrations-list"),
+            importBtn: document.getElementById("btn-import-registrations"),
+            clearBtn: document.getElementById("btn-clear-pending-registrations"),
+            pollMs: 30000,
+            onToast: function (msg, ok) {
+              console.log("[registrations]", ok ? "OK" : "ERR", msg);
+            },
+          });
+        }
+
         setQuizResultLine(null, null);
 
         if (!Mqtt) {

@@ -36,3 +36,43 @@ function load_dotenv_if_present(string $root): void
         $_ENV[$key] = $value;
     }
 }
+
+function env_int(string $key, int $default): int
+{
+    $raw = getenv($key);
+    if ($raw === false || $raw === '') {
+        return $default;
+    }
+    $n = (int) $raw;
+
+    return $n > 0 ? $n : $default;
+}
+
+function max_photobooth_files(): int
+{
+    return env_int('MAX_PHOTOBOOTH_FILES', 100);
+}
+
+function max_visitor_files(): int
+{
+    return env_int('MAX_VISITOR_FILES', 50);
+}
+
+function max_window_files(): int
+{
+    return env_int('MAX_WINDOW_FILES', 30);
+}
+
+function max_tts_files(): int
+{
+    return env_int('MAX_TTS_FILES', 20);
+}
+
+function max_upload_files_for_kind(string $kind): int
+{
+    return match ($kind) {
+        'visitor' => max_visitor_files(),
+        'window' => max_window_files(),
+        default => max_photobooth_files(),
+    };
+}

@@ -122,6 +122,78 @@ async function statePost(baseUrl, body) {
   return res.json();
 }
 
+async function testStaleRevConflict(baseUrl) {
+  await statePost(baseUrl, { _full_reset: true });
+  const state = await stateGet(baseUrl);
+  const staleRev = Math.max(0, Number(state._rev ?? 1) - 1);
+  const res = await fetch(`${baseUrl}/api/state.php`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ _rev: staleRev, status: "RUNNING" }),
+  });
+  if (res.status !== 409) {
+    return { pass: false, detail: `expected HTTP 409, got ${res.status}` };
+  }
+  const body = await res.json();
+  return {
+    pass: body.error === "conflict" && typeof body.current_rev === "number",
+    detail: `409 conflict, current_rev=${body.current_rev}`,
+  };
+}
+
+async function testLegacyPollingCompat(baseUrl) {
+  const res = await fetch(`${baseUrl}/api/state.php`, { cache: "no-store" });
+  if (!res.ok) return { pass: false, detail: `GET state HTTP ${res.status}` };
+  const state = await res.json();
+  const hasRev = typeof state._rev === "number" || state.status != null;
+  return {
+    pass: hasRev,
+    detail: `GET state OK, _rev=${state._rev ?? "n/a"}`,
+  };
+}
+
+async function testConcurrentWrites(baseUrl) {
+  await statePost(baseUrl, { _full_reset: true });
+  const initial = await stateGet(baseUrl);
+  const startRev = Number(initial._rev ?? 0);
+
+  const count = 24;
+  const results = await Promise.all(
+    Array.from({ length: count }, (_, i) =>
+      fetch(`${baseUrl}/api/state.php`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hardware: { zones: { zone_a: { led: `concurrent-${i}` } } },
+        }),
+      }).then(async (res) => {
+        if (!res.ok) throw new Error(`POST state HTTP ${res.status}`);
+        return res.json();
+      }),
+    ),
+  );
+
+  const final = await stateGet(baseUrl);
+  let raw;
+  try {
+    raw = fs.readFileSync(statePath, "utf8");
+    JSON.parse(raw);
+  } catch (e) {
+    return { pass: false, detail: `state.json corrupt after concurrent writes: ${e.message || e}` };
+  }
+  if (!raw.trim()) {
+    return { pass: false, detail: "state.json empty after concurrent writes" };
+  }
+
+  const endRev = Number(final._rev ?? 0);
+  const allHaveRev = results.every((r) => typeof r._rev === "number");
+  const pass = endRev > startRev && allHaveRev && isObject(final.hardware);
+  return {
+    pass,
+    detail: `_rev ${startRev}→${endRev}, ${count} concurrent POSTs, file ${raw.length} bytes`,
+  };
+}
+
 async function testScreensPatch(baseUrl) {
   await statePost(baseUrl, { screens: { big: { layer: "photo" } } });
   const state = await stateGet(baseUrl);
@@ -181,6 +253,9 @@ async function runIntegrationSuite() {
   await runIntegrationTest("visitors patch:", () => testVisitorsPatch(integrationBaseUrl));
   await runIntegrationTest("group_contact:", () => testGroupContactPatch(integrationBaseUrl));
   await runIntegrationTest("full reset:", () => testFullReset(integrationBaseUrl));
+  await runIntegrationTest("stale _rev 409:", () => testStaleRevConflict(integrationBaseUrl));
+  await runIntegrationTest("legacy GET state:", () => testLegacyPollingCompat(integrationBaseUrl));
+  await runIntegrationTest("concurrent writes:", () => testConcurrentWrites(integrationBaseUrl));
   if (!String(process.env.ELEVENLABS_API_KEY ?? "").trim()) {
     await runIntegrationTest("tts_names fallback:", () => testTtsNamesFallback(integrationBaseUrl));
   }
@@ -283,7 +358,7 @@ if (!Array.isArray(data.visitors)) {
   console.log("[WARN] state.json: visitors tömb hiányzik (GET után default töltődik)");
 } else ok("visitors tömb (state.json)");
 
-const apiFiles = ["state.php", "audio.php", "upload.php", "register.php", "photobooth-list.php"].map(
+const apiFiles = ["state.php", "events.php", "storage.php", "audio.php", "upload.php", "register.php", "photobooth-list.php"].map(
   (f) => path.join(root, "api", f),
 );
 for (const f of apiFiles) {
@@ -317,7 +392,7 @@ const jsFiles = [
   "shared/js/layer-switch.js",
   "shared/js/quiz-panel.js",
   "quiz/quiz.js",
-  "admin/admin.js",
+  "legacy/admin.js",
   "display/display.js",
   "register/register.js",
 ];
@@ -372,6 +447,55 @@ if (!stateLib.includes("modify_state_locked") || !stateLib.includes("flock")) {
   fail("api/state_lib.php: flock read-modify-write hiányzik");
 } else ok("api/state_lib.php: flock read-modify-write");
 
+if (!stateLib.includes("atomic_write_state") || !stateLib.includes("getmypid()")) {
+  fail("api/state_lib.php: atomic temp-file write hiányzik");
+} else ok("api/state_lib.php: atomic temp-file write");
+
+if (!stateLib.includes("check_patch_rev") || !stateLib.includes("'_rev'")) {
+  fail("api/state_lib.php: _rev optimistic concurrency hiányzik");
+} else ok("api/state_lib.php: _rev optimistic concurrency");
+
+if (!stateLib.includes("require_write_token") || !stateLib.includes("require_admin_header")) {
+  fail("api/state_lib.php: API auth guard hiányzik");
+} else ok("api/state_lib.php: API auth guard");
+
+const stateSyncJs = fs.readFileSync(path.join(root, "shared", "js", "state-sync.js"), "utf8");
+if (!stateSyncJs.includes("409") || !stateSyncJs.includes("_rev")) {
+  fail("state-sync.js: 409 conflict retry hiányzik");
+} else ok("state-sync.js: 409 conflict retry");
+
+if (!stateSyncJs.includes("X-Nanoportal-Token") || !stateSyncJs.includes("X-Nanoportal-Admin")) {
+  fail("state-sync.js: API auth header hiányzik");
+} else ok("state-sync.js: API auth headers");
+
+if (!stateSyncJs.includes("EventSource") || !stateSyncJs.includes("startSync")) {
+  fail("state-sync.js: SSE EventSource hiányzik");
+} else ok("state-sync.js: SSE EventSource");
+
+if (!stateSyncJs.includes("If-None-Match") || !stateSyncJs.includes("304")) {
+  fail("state-sync.js: ETag fallback polling hiányzik");
+} else ok("state-sync.js: ETag 304 fallback");
+
+if (!fs.existsSync(path.join(root, "api", "events.php"))) {
+  fail("hiányzó fájl: api/events.php");
+} else ok("létezik: api/events.php");
+
+if (!stateLib.includes("state_etag") || !statePhp.includes("304")) {
+  fail("api/state.php: ETag / 304 hiányzik");
+} else ok("api/state.php: ETag / 304");
+
+if (!fs.existsSync(path.join(root, "admin", ".htaccess"))) {
+  fail("hiányzó fájl: admin/.htaccess");
+} else ok("létezik: admin/.htaccess");
+
+if (!fs.existsSync(path.join(root, "AUTH.md"))) {
+  fail("hiányzó fájl: AUTH.md");
+} else ok("létezik: AUTH.md");
+
+if (!fs.existsSync(path.join(root, "DEPLOYMENT.md"))) {
+  fail("hiányzó fájl: DEPLOYMENT.md");
+} else ok("létezik: DEPLOYMENT.md");
+
 const devServer = fs.readFileSync(path.join(root, "scripts", "dev-server.mjs"), "utf8");
 if (!devServer.includes("applyQuizAnswerLock")) {
   fail("scripts/dev-server.mjs: applyQuizAnswerLock hiányzik");
@@ -388,6 +512,18 @@ if (!devServer.includes("defaultScreensInline") || !devServer.includes("ensureMo
 if (!devServer.includes("withStateLock") || !devServer.includes("modifyState")) {
   fail("scripts/dev-server.mjs: state lock hiányzik");
 } else ok("dev-server.mjs: state lock tükör");
+
+if (!devServer.includes("checkPatchRev") || !devServer.includes("process.pid")) {
+  fail("scripts/dev-server.mjs: _rev check vagy atomic write hiányzik");
+} else ok("dev-server.mjs: _rev + atomic write tükör");
+
+if (!devServer.includes("checkWriteToken") || !devServer.includes("NANOPORTAL_API_TOKEN")) {
+  fail("scripts/dev-server.mjs: API token auth hiányzik");
+} else ok("dev-server.mjs: API token auth tükör");
+
+if (!devServer.includes("handleEvents") || !devServer.includes("text/event-stream")) {
+  fail("scripts/dev-server.mjs: SSE events endpoint hiányzik");
+} else ok("dev-server.mjs: SSE events endpoint");
 
 if (!fs.existsSync(path.join(root, "docs", "roadmap-blaci.md"))) {
   fail("hiányzó fájl: docs/roadmap-blaci.md");
@@ -432,22 +568,32 @@ if (!themeCss.includes("--font-ui")) {
   fail("theme.css: --font-ui token hiányzik");
 } else ok("theme.css: --font-ui token");
 
-const adminJs = fs.readFileSync(path.join(root, "admin", "admin.js"), "utf8");
+const adminJs = fs.readFileSync(path.join(root, "legacy", "admin.js"), "utf8");
 if (!adminJs.includes("photobooth-list.php")) {
-  fail("admin.js: photobooth lista API hívás hiányzik");
-} else ok("admin.js: photobooth lista");
+  fail("legacy/admin.js: photobooth lista API hívás hiányzik");
+} else ok("legacy/admin.js: archív referencia");
 
-if (!adminJs.includes("tab-hardware") || !adminJs.includes("hardware-event-log")) {
-  fail("admin.js: Hardver operátori fül hiányzik");
-} else ok("admin.js: Hardver fül");
+if (fs.existsSync(path.join(root, "admin", "admin.js"))) {
+  fail("admin/admin.js: production path must be empty (moved to legacy/)");
+} else ok("admin/admin.js: eltávolítva productionból");
 
-if (!adminJs.includes("tab-visitors") || !adminJs.includes("setBigLayer")) {
-  fail("admin.js: Mobilmozi v2 látogatók / képernyő vezérlés hiányzik");
-} else ok("admin.js: Mobilmozi v2 fülek");
+const quizHtml = fs.readFileSync(path.join(root, "quiz", "index.html"), "utf8");
+if (!quizHtml.includes("/smallscreen/") || !quizHtml.includes("http-equiv=\"refresh\"")) {
+  fail("quiz/index.html: smallscreen redirect hiányzik");
+} else ok("quiz/index.html: redirect → smallscreen");
 
-if (!adminJs.includes("camera-capture.js") || !adminJs.includes("requestUserCamera")) {
-  fail("admin.js: közös camera-capture modul import hiányzik");
-} else ok("admin.js: camera-capture import");
+if (!fs.existsSync(path.join(root, "legacy", "admin.js"))) {
+  fail("hiányzó: legacy/admin.js");
+} else ok("létezik: legacy/admin.js");
+
+if (!fs.existsSync(path.join(root, "MIGRATION.md"))) fail("hiányzó: MIGRATION.md");
+else ok("létezik: MIGRATION.md");
+
+if (!fs.existsSync(path.join(root, "ARCHITECTURE.md"))) fail("hiányzó: ARCHITECTURE.md");
+else ok("létezik: ARCHITECTURE.md");
+
+if (!fs.existsSync(path.join(root, "CHANGELOG.md"))) fail("hiányzó: CHANGELOG.md");
+else ok("létezik: CHANGELOG.md");
 
 const cameraJs = fs.readFileSync(path.join(root, "shared", "js", "camera-capture.js"), "utf8");
 if (!cameraJs.includes("OverconstrainedError") || !cameraJs.includes("CAMERA_CONSTRAINT_ATTEMPTS")) {
@@ -593,12 +739,20 @@ if (!adminHtml.includes("bigscreen/players")) {
   fail("admin/index.html: bigscreen/players hiányzik");
 } else ok("admin/index.html: bigscreen players publish");
 
+if (!adminHtml.includes("pending-registrations-list") || !adminHtml.includes("session/registrations")) {
+  fail("admin/index.html: függő regisztrációk MQTT panel hiányzik");
+} else ok("admin/index.html: pending registrations MQTT");
+
 if (
   !adminHtml.includes("visitor-panel") &&
   !adminHtml.includes("Látogatók és kapcsolat")
 ) {
   fail("admin/index.html: látogatói panel hiányzik");
 } else ok("admin/index.html: visitor panel");
+
+if (!adminHtml.includes("admin-registrations.js")) {
+  fail("admin/index.html: admin-registrations.js hiányzik");
+} else ok("admin/index.html: admin-registrations.js");
 
 if (
   !adminHtml.includes("/api/upload.php") &&
@@ -667,10 +821,35 @@ if (!uploadPhp.includes("'window' => 'window'")) {
   fail("api/upload.php: window upload kind hiányzik");
 } else ok("api/upload.php: window upload kind");
 
+if (!uploadPhp.includes("prune_old_uploads") || !uploadPhp.includes("max_upload_files_for_kind")) {
+  fail("api/upload.php: upload retention prune hiányzik");
+} else ok("api/upload.php: upload retention prune");
+
+const storageLibPhp = fs.readFileSync(path.join(root, "api", "storage_lib.php"), "utf8");
+if (!storageLibPhp.includes("prune_tts_files") || !storageLibPhp.includes("storage_summary")) {
+  fail("api/storage_lib.php: storage helpers hiányoznak");
+} else ok("api/storage_lib.php: prune + summary");
+
+if (!fs.existsSync(path.join(root, "api", "storage.php"))) {
+  fail("hiányzó fájl: api/storage.php");
+} else ok("létezik: api/storage.php");
+
+if (!adminHtml.includes("storage-badge") || !adminHtml.includes("/api/storage.php")) {
+  fail("admin/index.html: storage badge hiányzik");
+} else ok("admin/index.html: storage badge");
+
 const mqttClientJs = fs.readFileSync(path.join(root, "shared", "js", "mqtt-client.js"), "utf8");
 if (!mqttClientJs.includes("NanoportalMqtt") || !mqttClientJs.includes("RETAIN_TOPICS")) {
   fail("mqtt-client.js: NanoportalMqtt vagy RETAIN_TOPICS hiányzik");
 } else ok("mqtt-client.js: NanoportalMqtt export");
+
+if (!mqttClientJs.includes("LS_MQTT_USER_KEY") || !mqttClientJs.includes("mqttCredentials")) {
+  fail("mqtt-client.js: MQTT username/password hiányzik");
+} else ok("mqtt-client.js: MQTT credentials");
+
+if (!mqttClientJs.includes("session/registrations")) {
+  fail("mqtt-client.js: session/registrations topic hiányzik");
+} else ok("mqtt-client.js: session/registrations");
 
 if (!mqttClientJs.includes("retain") || !mqttClientJs.includes("session/control")) {
   fail("mqtt-client.js: retain publish vagy session/control hiányzik");
@@ -693,6 +872,24 @@ const displayJs = fs.readFileSync(path.join(root, "display", "display.js"), "utf
 if (!displayJs.includes(".pause()") || !displayJs.includes("resolveAssetOrUrl")) {
   fail("display/display.js: media clear/URL resolve hiányzik");
 } else ok("display.js: pause + asset/URL resolve");
+
+if (!displayJs.includes("NanoportalMqtt") || !displayJs.includes("bigscreen/video")) {
+  fail("display/display.js: MQTT subscription hiányzik");
+} else ok("display.js: MQTT subscription");
+
+if (displayJs.includes("createStateSync") || displayJs.includes("startSync")) {
+  fail("display/display.js: polling state-sync még aktív");
+} else ok("display.js: nincs polling loop");
+
+const displayHtml = fs.readFileSync(path.join(root, "display", "index.html"), "utf8");
+if (!displayHtml.includes("mqtt-client.js")) {
+  fail("display/index.html: mqtt-client.js hiányzik");
+} else ok("display/index.html: mqtt-client.js");
+
+const registerPhp = fs.readFileSync(path.join(root, "api", "register.php"), "utf8");
+if (!registerPhp.includes("session/registrations") || !registerPhp.includes("mqtt_publish_json")) {
+  fail("api/register.php: MQTT registrations publish hiányzik");
+} else ok("api/register.php: session/registrations publish");
 
 if (!fs.existsSync(path.join(root, "shared", "js", "media-url.js"))) {
   fail("hiányzó: shared/js/media-url.js");

@@ -1,11 +1,18 @@
 # Nanoportal — Mosquitto példa (WebSocket a böngészőknek)
 # Másold /etc/mosquitto/conf.d/nanoportal.conf alá, majd: sudo systemctl restart mosquitto
+#
+# Jelszó fájl (első felhasználó):
+#   sudo mosquitto_passwd -c /etc/mosquitto/passwd admin
+# További felhasználók:
+#   sudo mosquitto_passwd /etc/mosquitto/passwd kiosk
 
 listener 1883
-allow_anonymous true
+allow_anonymous false
+password_file /etc/mosquitto/passwd
 
 listener 9001
 protocol websockets
-allow_anonymous true
+allow_anonymous false
+password_file /etc/mosquitto/passwd
 
-# Éles környezetben: allow_anonymous false + jelszó / TLS
+# TLS éles környezetben: listener 8883 + certfile / keyfile

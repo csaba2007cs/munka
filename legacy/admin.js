@@ -51,6 +51,7 @@ function confirmAction(message) {
 }
 
 const sync = createStateSync({
+  admin: true,
   onState: renderAdmin,
   onError: (e) => {
     const banner = $("status-banner");
@@ -402,7 +403,13 @@ async function uploadImageBlob(blob, kind) {
   const fd = new FormData();
   fd.append("photo", blob, "capture.jpg");
   fd.append("kind", kind);
-  const res = await fetch("/api/upload.php", { method: "POST", body: fd });
+  const headers = {};
+  try {
+    const token = localStorage.getItem("nanoportal.api.token")?.trim();
+    if (token) headers["X-Nanoportal-Token"] = token;
+  } catch (_) {}
+  headers["X-Nanoportal-Admin"] = "1";
+  const res = await fetch("/api/upload.php", { method: "POST", headers, body: fd });
   const json = await res.json();
   if (!json.ok) throw new Error(json.error || "Feltöltés sikertelen");
   return String(json.path ?? "");
@@ -574,9 +581,15 @@ async function loadAudioClips() {
       btn.className = "btn-neon";
       btn.textContent = c.file;
       btn.addEventListener("click", async () => {
+        const headers = { "Content-Type": "application/json" };
+        try {
+          const token = localStorage.getItem("nanoportal.api.token")?.trim();
+          if (token) headers["X-Nanoportal-Token"] = token;
+        } catch (_) {}
+        headers["X-Nanoportal-Admin"] = "1";
         await fetch("/api/audio.php", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({ clip: c.file }),
         });
         await sync.get().then(renderAdmin);
@@ -849,7 +862,13 @@ function bootPhotobooth() {
     const fd = new FormData();
     fd.append("photo", pendingBlob, "capture.jpg");
     try {
-      const res = await fetch("/api/upload.php", { method: "POST", body: fd });
+      const headers = {};
+      try {
+        const token = localStorage.getItem("nanoportal.api.token")?.trim();
+        if (token) headers["X-Nanoportal-Token"] = token;
+      } catch (_) {}
+      headers["X-Nanoportal-Admin"] = "1";
+      const res = await fetch("/api/upload.php", { method: "POST", headers, body: fd });
       const json = await res.json();
       if (!json.ok) {
         showToast("Feltöltés sikertelen.", "error");
@@ -1054,7 +1073,7 @@ function boot() {
   void loadAudioClips();
 
   updateTabs();
-  sync.startPolling();
+  sync.startSync();
 }
 
 boot();

@@ -19,6 +19,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/state_lib.php';
 require_once __DIR__ . '/env.php';
+require_once __DIR__ . '/storage_lib.php';
 
 $root = dirname(__DIR__);
 load_dotenv_if_present($root);
@@ -206,6 +207,8 @@ function handle_tts_names(array $names, string $audioDir, string $dataDir, strin
         exit;
     }
 
+    prune_tts_files($dataDir, max_tts_files());
+
     $generatedUrl = '/data/' . rawurlencode($filename);
     modify_state_locked($stateFile, static function (array $state) use ($generatedUrl): array {
         return patch_audio_placeholder($state, [
@@ -239,6 +242,8 @@ if ($method === 'GET') {
 }
 
 if ($method === 'POST') {
+    require_write_token();
+
     $body = file_get_contents('php://input');
     $payload = json_decode($body ?: '{}', true);
     if (!is_array($payload)) {

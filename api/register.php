@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/state_lib.php';
+require_once __DIR__ . '/mqtt_notify.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -85,6 +86,10 @@ if ($method === 'POST') {
         echo json_encode(['error' => 'Persist failed'], JSON_UNESCAPED_UNICODE);
         exit;
     }
+
+    mqtt_publish_json('session/registrations', [
+        'pending_registrations' => $state['pending_registrations'],
+    ]);
 
     echo json_encode([
         'ok' => true,

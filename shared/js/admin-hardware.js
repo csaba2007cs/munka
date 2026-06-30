@@ -34,9 +34,13 @@
   }
 
   async function patchState(body) {
+    const Auth = global.NanoportalAuth;
+    const headers = Auth
+      ? Auth.buildWriteHeaders({ admin: true })
+      : { "Content-Type": "application/json" };
     const res = await fetch("/api/state.php", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(body),
     });
     if (!res.ok) throw new Error("state.php hiba");

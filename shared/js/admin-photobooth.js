@@ -213,7 +213,13 @@ export function mountPhotobooth(root, { onToast = () => {} } = {}) {
     const fd = new FormData();
     fd.append("photo", pendingBlob, "capture.jpg");
     try {
-      const res = await fetch("/api/upload.php", { method: "POST", body: fd });
+      const headers = {};
+      try {
+        const token = localStorage.getItem("nanoportal.api.token")?.trim();
+        if (token) headers["X-Nanoportal-Token"] = token;
+      } catch (_) {}
+      headers["X-Nanoportal-Admin"] = "1";
+      const res = await fetch("/api/upload.php", { method: "POST", headers, body: fd });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || "Feltöltés sikertelen");
       clearPending();

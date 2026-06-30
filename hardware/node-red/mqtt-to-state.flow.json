@@ -4,7 +4,7 @@
     "type": "tab",
     "label": "Nanoportal MQTT → state.php",
     "disabled": false,
-    "info": "MQTT üzenetek → JSON patch → POST /api/state.php. Állítsd a broker és a STATE_URL env változót."
+    "info": "MQTT ↔ state.php bridge. register.php publishes session/registrations directly after HTTP POST."
   },
   {
     "id": "nanoportal_broker",

@@ -1,10 +1,12 @@
 /**
  * Shared MQTT helpers for Nanoportal admin, bigscreen, and smallscreen.
  * Requires mqtt.min.js (MQTT.js 5.x) loaded first.
- * Non-retained: session/control, session/group_contact, bigscreen/video/play|pause|reset, smallscreen/quiz/result
+ * Non-retained: session/control, session/group_contact, session/registrations (retained snapshot when published from register.php)
  */
 (function (global) {
   const LS_BROKER_KEY = "nanoportal.mqtt.broker";
+  const LS_MQTT_USER_KEY = "nanoportal.mqtt.user";
+  const LS_MQTT_PASS_KEY = "nanoportal.mqtt.password";
 
   const RETAIN_TOPIC_LIST = [
     "bigscreen/layer",
@@ -13,6 +15,7 @@
     "bigscreen/players",
     "bigscreen/celebration/background",
     "bigscreen/celebration/cheer",
+    "session/registrations",
     "smallscreen/layer",
     "smallscreen/photo",
     "smallscreen/video",
@@ -36,6 +39,22 @@
       if (stored) return stored.trim();
     } catch (_) {}
     return "ws://" + global.location.hostname + ":9001";
+  }
+
+  function mqttCredentials() {
+    try {
+      const username = global.localStorage.getItem(LS_MQTT_USER_KEY);
+      const password = global.localStorage.getItem(LS_MQTT_PASS_KEY);
+      if (!username || !String(username).trim()) {
+        return null;
+      }
+      return {
+        username: String(username).trim(),
+        password: password != null ? String(password) : "",
+      };
+    } catch (_) {
+      return null;
+    }
   }
 
   function payloadText(message) {
@@ -82,6 +101,8 @@
    * @param {string[]} [options.topics] - topics to subscribe on connect
    * @param {function(string, string): void} [options.onMessage] - (topic, textPayload)
    * @param {function(string, string): void} [options.onStatus] - (state, detail)
+   * @param {string} [options.username] - MQTT username override
+   * @param {string} [options.password] - MQTT password override
    * @returns {object|null} mqtt client or null if mqtt missing
    */
   function connect(options) {
@@ -98,11 +119,24 @@
     const url = brokerUrl();
     onStatus("connecting", url);
 
-    const client = global.mqtt.connect(url, {
+    const connectOpts = {
       reconnectPeriod: 3000,
       clean: true,
       connectTimeout: 10000,
-    });
+    };
+    const storedCreds = mqttCredentials();
+    const username =
+      options.username != null && String(options.username).trim()
+        ? String(options.username).trim()
+        : storedCreds?.username;
+    const password =
+      options.password != null ? String(options.password) : storedCreds?.password;
+    if (username) {
+      connectOpts.username = username;
+      connectOpts.password = password ?? "";
+    }
+
+    const client = global.mqtt.connect(url, connectOpts);
 
     client.on("connect", function () {
       onStatus("connected", url);
@@ -130,9 +164,12 @@
 
   global.NanoportalMqtt = {
     LS_BROKER_KEY: LS_BROKER_KEY,
+    LS_MQTT_USER_KEY: LS_MQTT_USER_KEY,
+    LS_MQTT_PASS_KEY: LS_MQTT_PASS_KEY,
     RETAIN_TOPICS: RETAIN_TOPICS,
     RETAIN_TOPIC_LIST: RETAIN_TOPIC_LIST,
     brokerUrl: brokerUrl,
+    mqttCredentials: mqttCredentials,
     payloadText: payloadText,
     defaultRetain: defaultRetain,
     publish: publish,

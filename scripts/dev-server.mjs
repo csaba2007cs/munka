@@ -2,6 +2,8 @@ import fs from "fs";
 import path from "path";
 import http from "http";
 import os from "os";
+import crypto from "crypto";
+import { spawnSync } from "child_process";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -27,6 +29,143 @@ function loadEnvFile(filePath) {
   }
 }
 loadEnvFile(path.join(root, ".env"));
+
+const API_TOKEN = String(process.env.NANOPORTAL_API_TOKEN ?? "").trim();
+
+function envInt(key, defaultVal) {
+  const raw = process.env[key];
+  if (raw == null || raw === "") return defaultVal;
+  const n = Number.parseInt(String(raw), 10);
+  return Number.isFinite(n) && n > 0 ? n : defaultVal;
+}
+
+function maxPhotoboothFiles() {
+  return envInt("MAX_PHOTOBOOTH_FILES", 100);
+}
+function maxVisitorFiles() {
+  return envInt("MAX_VISITOR_FILES", 50);
+}
+function maxWindowFiles() {
+  return envInt("MAX_WINDOW_FILES", 30);
+}
+function maxTtsFiles() {
+  return envInt("MAX_TTS_FILES", 20);
+}
+function maxUploadFilesForKind(kind) {
+  if (kind === "visitor") return maxVisitorFiles();
+  if (kind === "window") return maxWindowFiles();
+  return maxPhotoboothFiles();
+}
+
+function humanBytes(bytes) {
+  if (bytes < 0) bytes = 0;
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let i = 0;
+  let v = bytes;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  return (i > 0 ? v.toFixed(1) : String(Math.round(v))) + " " + units[i];
+}
+
+function pruneOldUploads(dir, prefix, maxKeep) {
+  if (maxKeep < 1 || !fs.existsSync(dir)) return;
+  const files = fs
+    .readdirSync(dir)
+    .filter((name) => name.startsWith(prefix + "_"))
+    .map((name) => path.join(dir, name))
+    .filter((full) => fs.statSync(full).isFile())
+    .sort((a, b) => fs.statSync(a).mtimeMs - fs.statSync(b).mtimeMs);
+  if (files.length <= maxKeep) return;
+  for (const f of files.slice(0, files.length - maxKeep)) {
+    try {
+      fs.unlinkSync(f);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function pruneTtsFiles(dir, maxKeep) {
+  if (maxKeep < 1 || !fs.existsSync(dir)) return;
+  const files = fs
+    .readdirSync(dir)
+    .filter((name) => name.startsWith("tts_") && name.toLowerCase().endsWith(".mp3"))
+    .map((name) => path.join(dir, name))
+    .filter((full) => fs.statSync(full).isFile())
+    .sort((a, b) => fs.statSync(a).mtimeMs - fs.statSync(b).mtimeMs);
+  if (files.length <= maxKeep) return;
+  for (const f of files.slice(0, files.length - maxKeep)) {
+    try {
+      fs.unlinkSync(f);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function countDataFiles(dir) {
+  const counts = { photobooth: 0, visitor: 0, window: 0, tts: 0 };
+  if (!fs.existsSync(dir)) return counts;
+  for (const name of fs.readdirSync(dir)) {
+    const full = path.join(dir, name);
+    if (!fs.statSync(full).isFile()) continue;
+    if (name.startsWith("photobooth_")) counts.photobooth += 1;
+    else if (name.startsWith("visitor_")) counts.visitor += 1;
+    else if (name.startsWith("window_")) counts.window += 1;
+    else if (name.startsWith("tts_") && name.toLowerCase().endsWith(".mp3")) counts.tts += 1;
+  }
+  return counts;
+}
+
+function dirSizeBytes(dir) {
+  if (!fs.existsSync(dir)) return 0;
+  let total = 0;
+  for (const name of fs.readdirSync(dir)) {
+    const full = path.join(dir, name);
+    if (fs.statSync(full).isFile()) total += fs.statSync(full).size;
+  }
+  return total;
+}
+
+function storageSummary() {
+  fs.mkdirSync(dataDir, { recursive: true });
+  const dataBytes = dirSizeBytes(dataDir);
+  let diskFree = 0;
+  try {
+    if (typeof fs.statfsSync === "function") {
+      const st = fs.statfsSync(dataDir);
+      diskFree = Number(st.bfree) * Number(st.bsize);
+    }
+  } catch {
+    diskFree = 0;
+  }
+  return {
+    data_dir_bytes: dataBytes,
+    data_dir_human: humanBytes(dataBytes),
+    file_counts: countDataFiles(dataDir),
+    disk_free_bytes: diskFree,
+    disk_free_human: humanBytes(diskFree),
+  };
+}
+
+function mqttPublishJson(topic, payload, retain = true) {
+  const host = String(process.env.MQTT_BROKER_HOST ?? "127.0.0.1");
+  const port = String(process.env.MQTT_BROKER_PORT ?? "1883");
+  const user = String(process.env.MQTT_BROKER_USER ?? "").trim();
+  const pass = String(process.env.MQTT_BROKER_PASS ?? "");
+  const args = ["-h", host, "-p", port, "-t", topic, "-m", JSON.stringify(payload)];
+  if (retain) args.push("-r");
+  if (user) {
+    args.push("-u", user, "-P", pass);
+  }
+  try {
+    spawnSync("mosquitto_pub", args, { stdio: "ignore" });
+  } catch {
+    /* optional — admin falls back to HTTP poll */
+  }
+}
 
 const stateFile = path.join(root, "data", "state.json");
 const stateLockFile = stateFile + ".lock";
@@ -145,6 +284,7 @@ function defaultStateInline() {
     visitors: [],
     group_contact: defaultGroupContactInline(),
     updated_at: null,
+    _rev: 0,
   };
 }
 
@@ -297,10 +437,34 @@ function readStateDisk() {
     const raw = fs.readFileSync(stateFile, "utf8");
     if (!raw.trim()) return defaultStateInline();
     const d = JSON.parse(raw);
-    return ensureMobilmoziDefaults(isPlainObject(d) ? d : defaultStateInline());
-  } catch {
+    if (!isPlainObject(d)) {
+      console.error("state.json corrupt, resetting to default");
+      return ensureMobilmoziDefaults(defaultStateInline());
+    }
+    return ensureMobilmoziDefaults(d);
+  } catch (e) {
+    console.error("state.json corrupt, resetting to default:", e.message || e);
     return ensureMobilmoziDefaults(defaultStateInline());
   }
+}
+
+function stripRevFromPatch(patch) {
+  const clean = { ...patch };
+  delete clean._rev;
+  return clean;
+}
+
+function checkPatchRev(current, patch) {
+  if (!Object.prototype.hasOwnProperty.call(patch, "_rev")) return null;
+  const currentRev = Number(current._rev ?? 0);
+  if (Number(patch._rev) !== currentRev) {
+    return { conflict: true, current_rev: currentRev };
+  }
+  return null;
+}
+
+function bumpStateRev(state, current) {
+  return { ...state, _rev: Number(current._rev ?? 0) + 1 };
 }
 
 function loadState() {
@@ -311,7 +475,7 @@ function saveState(state) {
   try {
     state.updated_at = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
     const json = JSON.stringify(state, null, 2);
-    const tmp = stateFile + ".tmp";
+    const tmp = stateFile + ".tmp." + process.pid;
     fs.mkdirSync(dataDir, { recursive: true });
     fs.writeFileSync(tmp, json, "utf8");
     fs.renameSync(tmp, stateFile);
@@ -325,8 +489,13 @@ function modifyState(mutator) {
   return withStateLock(() => {
     const current = readStateDisk();
     const next = mutator(current);
-    if (!saveState(next)) return null;
-    return next;
+    if (next && next.conflict) {
+      return next;
+    }
+    if (!next) return null;
+    const bumped = bumpStateRev(ensureMobilmoziDefaults(next), current);
+    if (!saveState(bumped)) return null;
+    return bumped;
   });
 }
 
@@ -391,6 +560,32 @@ function sendJson(res, status, obj) {
   res.end(body);
 }
 
+function checkWriteToken(req, res) {
+  if (!API_TOKEN) return true;
+  const header = String(req.headers["x-nanoportal-token"] ?? "");
+  let ok = false;
+  try {
+    const a = Buffer.from(header);
+    const b = Buffer.from(API_TOKEN);
+    ok = a.length === b.length && crypto.timingSafeEqual(a, b);
+  } catch {
+    ok = false;
+  }
+  if (!ok) {
+    sendJson(res, 401, { error: "unauthorized" });
+    return false;
+  }
+  return true;
+}
+
+function checkAdminHeader(req, res) {
+  if (String(req.headers["x-nanoportal-admin"] ?? "") !== "1") {
+    sendJson(res, 403, { error: "admin_required" });
+    return false;
+  }
+  return true;
+}
+
 function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -433,6 +628,7 @@ function parseMultipart(buffer, boundary) {
 }
 
 async function handleUpload(req, res) {
+  if (!checkWriteToken(req, res)) return;
   const ct = req.headers["content-type"] || "";
   const m = /boundary=([^;]+)/i.exec(ct);
   if (!m) {
@@ -471,6 +667,8 @@ async function handleUpload(req, res) {
   fs.mkdirSync(dataDir, { recursive: true });
   const dest = path.join(dataDir, safeName);
   fs.writeFileSync(dest, photo.data);
+  const kindKey = Object.prototype.hasOwnProperty.call(prefixMap, kindRaw) ? kindRaw : "photobooth";
+  pruneOldUploads(dataDir, prefix, maxUploadFilesForKind(kindKey));
   const publicPath = "/data/" + encodeURIComponent(safeName);
   const mtimeUnix = fs.statSync(dest).mtimeMs;
   sendJson(res, 200, {
@@ -479,6 +677,14 @@ async function handleUpload(req, res) {
     filename: safeName,
     mtime: new Date(mtimeUnix).toISOString().replace(/\.\d{3}Z$/, "Z"),
   });
+}
+
+function handleStorage(req, res) {
+  if (req.method !== "GET") {
+    sendJson(res, 405, { error: "Method not allowed" });
+    return;
+  }
+  sendJson(res, 200, storageSummary());
 }
 
 function handlePhotoboothList(req, res) {
@@ -542,12 +748,34 @@ function serveStatic(req, res, pathname) {
   fs.createReadStream(abs).pipe(res);
 }
 
+function stateEtag(state) {
+  const rev = Number(state._rev ?? 0);
+  if (rev > 0) return `"${rev}"`;
+  return `"${crypto.createHash("md5").update(JSON.stringify(state)).digest("hex")}"`;
+}
+
 async function handleState(req, res) {
   if (req.method === "GET") {
-    sendJson(res, 200, loadState());
+    const state = loadState();
+    const etag = stateEtag(state);
+    res.setHeader("ETag", etag);
+    const updated = state.updated_at;
+    if (updated) {
+      const d = new Date(updated);
+      if (!Number.isNaN(d.getTime())) {
+        res.setHeader("Last-Modified", d.toUTCString());
+      }
+    }
+    if (String(req.headers["if-none-match"] ?? "") === etag) {
+      res.writeHead(304, { "Cache-Control": "no-store" });
+      res.end();
+      return;
+    }
+    sendJson(res, 200, state);
     return;
   }
   if (req.method === "POST") {
+    if (!checkWriteToken(req, res)) return;
     const raw = (await readBody(req)).toString("utf8");
     if (!raw.trim()) {
       sendJson(res, 400, { error: "Empty body" });
@@ -565,7 +793,16 @@ async function handleState(req, res) {
       return;
     }
     if (patch._full_reset) {
-      const fresh = modifyState(() => defaultStateInline());
+      if (!checkAdminHeader(req, res)) return;
+      const fresh = modifyState((current) => {
+        const conflict = checkPatchRev(current, patch);
+        if (conflict) return conflict;
+        return defaultStateInline();
+      });
+      if (fresh && fresh.conflict) {
+        sendJson(res, 409, { error: "conflict", current_rev: fresh.current_rev });
+        return;
+      }
       if (!fresh) {
         sendJson(res, 500, { error: "Failed to persist state" });
         return;
@@ -573,14 +810,21 @@ async function handleState(req, res) {
       sendJson(res, 200, fresh);
       return;
     }
-    const merged = modifyState((current) =>
-      ensureMobilmoziDefaults(
+    const merged = modifyState((current) => {
+      const conflict = checkPatchRev(current, patch);
+      if (conflict) return conflict;
+      const clean = stripRevFromPatch(patch);
+      return ensureMobilmoziDefaults(
         applyHardwareEventLog(
-          applyQuizAnswerLock(current, patch, mergeState(current, patch)),
-          patch,
+          applyQuizAnswerLock(current, clean, mergeState(current, clean)),
+          clean,
         ),
-      ),
-    );
+      );
+    });
+    if (merged && merged.conflict) {
+      sendJson(res, 409, { error: "conflict", current_rev: merged.current_rev });
+      return;
+    }
     if (!merged) {
       sendJson(res, 500, { error: "Failed to persist state" });
       return;
@@ -589,6 +833,51 @@ async function handleState(req, res) {
     return;
   }
   sendJson(res, 405, { error: "Method not allowed" });
+}
+
+function handleEvents(req, res) {
+  if (req.method !== "GET") {
+    sendJson(res, 405, { error: "Method not allowed" });
+    return;
+  }
+
+  const url = new URL(req.url || "/", "http://127.0.0.1");
+  const lastEventId = String(req.headers["last-event-id"] ?? "").trim();
+  let lastRev = lastEventId !== "" ? Number(lastEventId) : Number(url.searchParams.get("rev") ?? 0);
+  if (Number.isNaN(lastRev)) lastRev = 0;
+
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-store",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+
+  let keepaliveTicks = 0;
+  const tickMs = 200;
+
+  const interval = setInterval(() => {
+    if (req.socket.destroyed) {
+      clearInterval(interval);
+      return;
+    }
+    const state = loadState();
+    const rev = Number(state._rev ?? 0);
+    if (rev > lastRev) {
+      lastRev = rev;
+      keepaliveTicks = 0;
+      res.write(`id: ${rev}\n`);
+      res.write(`data: ${JSON.stringify(state)}\n\n`);
+    } else {
+      keepaliveTicks += 1;
+      if (keepaliveTicks >= 25) {
+        res.write(": keepalive\n\n");
+        keepaliveTicks = 0;
+      }
+    }
+  }, tickMs);
+
+  req.on("close", () => clearInterval(interval));
 }
 
 const TTS_FALLBACK_CLIP = "cheer_crowd.mp3";
@@ -658,6 +947,7 @@ async function handleTtsNames(names) {
   fs.mkdirSync(dataDir, { recursive: true });
   const filename = ttsOutputFilename();
   fs.writeFileSync(path.join(dataDir, filename), bytes);
+  pruneTtsFiles(dataDir, maxTtsFiles());
   const generatedUrl = "/data/" + encodeURIComponent(filename);
   modifyState((current) =>
     patchAudioPlaceholder(current, { status: "ready", generated_url: generatedUrl }),
@@ -678,6 +968,7 @@ async function handleAudio(req, res) {
     return;
   }
   if (req.method === "POST") {
+    if (!checkWriteToken(req, res)) return;
     const raw = (await readBody(req)).toString("utf8");
     let payload;
     try {
@@ -800,6 +1091,9 @@ async function handleRegister(req, res) {
       sendJson(res, 500, { error: "Persist failed" });
       return;
     }
+    mqttPublishJson("session/registrations", {
+      pending_registrations: state.pending_registrations,
+    });
     sendJson(res, 200, {
       ok: true,
       entry,
@@ -834,6 +1128,10 @@ const server = http.createServer(async (req, res) => {
       await handleState(req, res);
       return;
     }
+    if (p === "/api/events.php") {
+      handleEvents(req, res);
+      return;
+    }
     if (p === "/api/audio.php") {
       await handleAudio(req, res);
       return;
@@ -844,6 +1142,10 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === "/api/photobooth-list.php" && req.method === "GET") {
       handlePhotoboothList(req, res);
+      return;
+    }
+    if (p === "/api/storage.php" && req.method === "GET") {
+      handleStorage(req, res);
       return;
     }
     if (p === "/api/register.php") {
@@ -882,6 +1184,7 @@ Nanoportal dev server (Node) — mirrors /api/*.php for local preview without PH
   Register:   ${localBase}/register/
 
   State API: ${localBase}/api/state.php
+  SSE:       ${localBase}/api/events.php
   Register API: ${localBase}/api/register.php${lanLine}
 
   HOST=${host} PORT=${port} (HOST=0.0.0.0 for LAN tablet access)
