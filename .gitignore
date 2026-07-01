@@ -1,6 +1,8 @@
 # Runtime / generated
 data/photobooth_*.jpg
 data/*.jpg
+data/snapshots/
+data/.health_boot
 *.log
 
 # OS / editor

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/state_lib.php';
 require_once __DIR__ . '/mqtt_notify.php';
+require_once __DIR__ . '/sanitize.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -17,15 +18,6 @@ if (!is_dir($dataDir)) {
         echo json_encode(['error' => 'Cannot create data directory'], JSON_UNESCAPED_UNICODE);
         exit;
     }
-}
-
-function utf8_len(string $s): int
-{
-    if (function_exists('mb_strlen')) {
-        return (int) mb_strlen($s, 'UTF-8');
-    }
-
-    return strlen($s);
 }
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -48,15 +40,10 @@ if ($method === 'POST') {
         exit;
     }
 
-    $name = trim($payload['name']);
-    if ($name === '') {
+    $name = sanitize_person_name($payload['name']);
+    if (utf8_len($name) < 1 || utf8_len($name) > 120) {
         http_response_code(400);
-        echo json_encode(['error' => 'Name must not be empty'], JSON_UNESCAPED_UNICODE);
-        exit;
-    }
-    if (utf8_len($name) > 120) {
-        http_response_code(400);
-        echo json_encode(['error' => 'Name too long (max 120)'], JSON_UNESCAPED_UNICODE);
+        echo json_encode(['error' => 'name must be 1–120 chars'], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -82,6 +69,7 @@ if ($method === 'POST') {
     });
 
     if ($state === null || $row === null) {
+        nanoportal_log('error', 'register.php persist failed', ['name' => $name]);
         http_response_code(500);
         echo json_encode(['error' => 'Persist failed'], JSON_UNESCAPED_UNICODE);
         exit;

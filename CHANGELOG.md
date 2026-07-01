@@ -8,6 +8,8 @@
 - **`session/registrations`** MQTT topic — pushed after each `/api/register.php` POST
 - Pending registrations panel in **`admin/index.html`**
 - Storage retention + **`GET /api/storage.php`**
+- State snapshots in **`data/snapshots/`** on lifecycle transitions + **`GET /api/sessions.php`**
+- Admin **Munkamenet-előzmények** — download / restore snapshots
 
 ### Changed
 

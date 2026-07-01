@@ -42,6 +42,8 @@ After deploy, visiting `/admin/` must show a browser login dialog. Use the **TOK
 ```bash
 chown -R www-data:www-data data/
 chmod 755 data/
+mkdir -p data/snapshots
+chmod 755 data/snapshots
 chmod 644 data/state.json   # after first run
 ```
 
