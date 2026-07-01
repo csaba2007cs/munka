@@ -122,8 +122,165 @@ async function statePost(baseUrl, body) {
   return res.json();
 }
 
+async function statePostAdmin(baseUrl, body) {
+  const res = await fetch(`${baseUrl}/api/state.php`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...adminFetchHeaders() },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`POST state HTTP ${res.status}`);
+  return res.json();
+}
+
+function adminFetchHeaders() {
+  return { "X-Nanoportal-Admin": "1" };
+}
+
+const snapshotsDirPath = path.join(root, "data", "snapshots");
+
+function countSnapshotPrefix(prefix) {
+  if (!fs.existsSync(snapshotsDirPath)) return 0;
+  return fs.readdirSync(snapshotsDirPath).filter((f) => f.startsWith(`state_${prefix}_`)).length;
+}
+
+async function testSnapshotLifecycle(baseUrl) {
+  fs.mkdirSync(snapshotsDirPath, { recursive: true });
+  let state = await stateGet(baseUrl);
+  if (state.status !== "IDLE") {
+    await statePost(baseUrl, { _rev: state._rev, status: "IDLE" });
+    state = await stateGet(baseUrl);
+  }
+  const runningBefore = countSnapshotPrefix("RUNNING");
+  await statePost(baseUrl, { _rev: state._rev, status: "RUNNING" });
+  if (countSnapshotPrefix("RUNNING") <= runningBefore) {
+    return { pass: false, detail: "RUNNING snapshot not created" };
+  }
+  state = await stateGet(baseUrl);
+  const completedBefore = countSnapshotPrefix("COMPLETED");
+  await statePost(baseUrl, {
+    _rev: state._rev,
+    status: "COMPLETED",
+    current_step: 4,
+    players: [{ id: 1, name: "SnapshotTest" }],
+  });
+  if (countSnapshotPrefix("COMPLETED") <= completedBefore) {
+    return { pass: false, detail: "COMPLETED snapshot not created" };
+  }
+  const res = await fetch(`${baseUrl}/api/sessions.php`, {
+    headers: adminFetchHeaders(),
+  });
+  if (!res.ok) {
+    return { pass: false, detail: `sessions HTTP ${res.status}` };
+  }
+  const data = await res.json();
+  const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+  const match = sessions.find(
+    (s) =>
+      s.steps_completed === 4 &&
+      Array.isArray(s.players) &&
+      s.players.includes("SnapshotTest"),
+  );
+  return {
+    pass: Boolean(match),
+    detail: `sessions=${sessions.length}, matched=${Boolean(match)}`,
+  };
+}
+
+async function testPreresetSnapshot(baseUrl) {
+  fs.mkdirSync(snapshotsDirPath, { recursive: true });
+  let state = await stateGet(baseUrl);
+  await statePost(baseUrl, { _rev: state._rev, status: "RUNNING" });
+  state = await stateGet(baseUrl);
+  const before = countSnapshotPrefix("PRERESET");
+  const res = await fetch(`${baseUrl}/api/state.php`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...adminFetchHeaders() },
+    body: JSON.stringify({ _full_reset: true, _rev: state._rev }),
+  });
+  if (!res.ok) {
+    return { pass: false, detail: `full_reset HTTP ${res.status}` };
+  }
+  const after = countSnapshotPrefix("PRERESET");
+  const final = await stateGet(baseUrl);
+  return {
+    pass: after >= before && final.status === "IDLE",
+    detail: `PRERESET snapshots ${before}→${after}, status=${final.status}`,
+  };
+}
+
+async function testRegisterSanitize(baseUrl) {
+  const res = await fetch(`${baseUrl}/api/register.php`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: "<script>alert(1)</script>Ann" }),
+  });
+  if (!res.ok) {
+    return { pass: false, detail: `register HTTP ${res.status}` };
+  }
+  const data = await res.json();
+  const entryName = String(data.entry?.name ?? "");
+  const pass =
+    !entryName.includes("<") &&
+    !entryName.toLowerCase().includes("script") &&
+    entryName.toLowerCase().includes("ann");
+  return { pass, detail: `sanitized name="${entryName}"` };
+}
+
+async function testStateBodyTooLarge(baseUrl) {
+  const pad = "x".repeat(512 * 1024 + 10);
+  try {
+    const res = await fetch(`${baseUrl}/api/state.php`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status: "IDLE", _pad: pad }),
+    });
+    return {
+      pass: res.status === 413,
+      detail: `expected HTTP 413, got ${res.status}`,
+    };
+  } catch (e) {
+    return { pass: false, detail: String(e.message || e) };
+  }
+}
+
+async function testStateUnknownKey(baseUrl) {
+  const res = await fetch(`${baseUrl}/api/state.php`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ unknown_key: 1 }),
+  });
+  if (res.status !== 400) {
+    return { pass: false, detail: `expected HTTP 400, got ${res.status}` };
+  }
+  const data = await res.json();
+  return {
+    pass: data.error === "validation_failed" && Array.isArray(data.details),
+    detail: `error=${data.error}, details=${JSON.stringify(data.details)}`,
+  };
+}
+
+async function testUploadSpoofedMime(baseUrl) {
+  const boundary = "----NanoportalTestBoundary";
+  const phpBody = "<?php echo 'bad'; ?>";
+  const body =
+    `--${boundary}\r\n` +
+    `Content-Disposition: form-data; name="photo"; filename="evil.jpg"\r\n` +
+    `Content-Type: image/jpeg\r\n\r\n` +
+    `${phpBody}\r\n` +
+    `--${boundary}--\r\n`;
+  const res = await fetch(`${baseUrl}/api/upload.php`, {
+    method: "POST",
+    headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
+    body,
+  });
+  return {
+    pass: res.status === 415,
+    detail: `expected HTTP 415, got ${res.status}`,
+  };
+}
+
 async function testStaleRevConflict(baseUrl) {
-  await statePost(baseUrl, { _full_reset: true });
+  await statePostAdmin(baseUrl, { _full_reset: true });
   const state = await stateGet(baseUrl);
   const staleRev = Math.max(0, Number(state._rev ?? 1) - 1);
   const res = await fetch(`${baseUrl}/api/state.php`, {
@@ -153,7 +310,7 @@ async function testLegacyPollingCompat(baseUrl) {
 }
 
 async function testConcurrentWrites(baseUrl) {
-  await statePost(baseUrl, { _full_reset: true });
+  await statePostAdmin(baseUrl, { _full_reset: true });
   const initial = await stateGet(baseUrl);
   const startRev = Number(initial._rev ?? 0);
 
@@ -219,7 +376,7 @@ async function testGroupContactPatch(baseUrl) {
 }
 
 async function testFullReset(baseUrl) {
-  await statePost(baseUrl, { _full_reset: true });
+  await statePostAdmin(baseUrl, { _full_reset: true });
   const state = await stateGet(baseUrl);
   return { pass: state?.status === "IDLE", detail: `status = "${state?.status}"` };
 }
@@ -246,6 +403,16 @@ async function runIntegrationTest(label, fn) {
   }
 }
 
+async function testHealthEndpoint(baseUrl) {
+  const res = await fetch(`${baseUrl}/api/health.php`, { cache: "no-store" });
+  const data = await res.json();
+  const ok = res.status === 200 && data.ok === true && data.checks?.state_readable === true;
+  return {
+    pass: ok,
+    detail: `HTTP ${res.status}, ok=${data.ok}, rev=${data.checks?.state_rev ?? "?"}`,
+  };
+}
+
 async function runIntegrationSuite() {
   console.log("\n--- Integration tests ---");
   await runIntegrationTest("MQTT broker:", () => testMqttBrokerReachable(mqttBrokerUrl));
@@ -255,6 +422,13 @@ async function runIntegrationSuite() {
   await runIntegrationTest("full reset:", () => testFullReset(integrationBaseUrl));
   await runIntegrationTest("stale _rev 409:", () => testStaleRevConflict(integrationBaseUrl));
   await runIntegrationTest("legacy GET state:", () => testLegacyPollingCompat(integrationBaseUrl));
+  await runIntegrationTest("snapshot lifecycle:", () => testSnapshotLifecycle(integrationBaseUrl));
+  await runIntegrationTest("PRERESET backup:", () => testPreresetSnapshot(integrationBaseUrl));
+  await runIntegrationTest("register sanitize:", () => testRegisterSanitize(integrationBaseUrl));
+  await runIntegrationTest("state body 413:", () => testStateBodyTooLarge(integrationBaseUrl));
+  await runIntegrationTest("state unknown key:", () => testStateUnknownKey(integrationBaseUrl));
+  await runIntegrationTest("upload spoof MIME:", () => testUploadSpoofedMime(integrationBaseUrl));
+  await runIntegrationTest("health API:", () => testHealthEndpoint(integrationBaseUrl));
   await runIntegrationTest("concurrent writes:", () => testConcurrentWrites(integrationBaseUrl));
   if (!String(process.env.ELEVENLABS_API_KEY ?? "").trim()) {
     await runIntegrationTest("tts_names fallback:", () => testTtsNamesFallback(integrationBaseUrl));
@@ -358,7 +532,7 @@ if (!Array.isArray(data.visitors)) {
   console.log("[WARN] state.json: visitors tömb hiányzik (GET után default töltődik)");
 } else ok("visitors tömb (state.json)");
 
-const apiFiles = ["state.php", "events.php", "storage.php", "audio.php", "upload.php", "register.php", "photobooth-list.php"].map(
+const apiFiles = ["state.php", "events.php", "storage.php", "health.php", "logs.php", "audio.php", "upload.php", "register.php", "photobooth-list.php"].map(
   (f) => path.join(root, "api", f),
 );
 for (const f of apiFiles) {
@@ -459,6 +633,90 @@ if (!stateLib.includes("require_write_token") || !stateLib.includes("require_adm
   fail("api/state_lib.php: API auth guard hiányzik");
 } else ok("api/state_lib.php: API auth guard");
 
+if (!stateLib.includes("maybe_snapshot_on_status_change") || !stateLib.includes("snapshots_lib")) {
+  fail("api/state_lib.php: snapshot lifecycle hook hiányzik");
+} else ok("api/state_lib.php: snapshot lifecycle hook");
+
+const snapshotsLibPhp = fs.readFileSync(path.join(root, "api", "snapshots_lib.php"), "utf8");
+if (
+  !snapshotsLibPhp.includes("prune_old_snapshots") ||
+  !snapshotsLibPhp.includes("list_completed_sessions") ||
+  !snapshotsLibPhp.includes("save_state_snapshot")
+) {
+  fail("api/snapshots_lib.php: snapshot helpers hiányoznak");
+} else ok("api/snapshots_lib.php: snapshot helpers");
+
+if (!fs.existsSync(path.join(root, "api", "sessions.php"))) {
+  fail("hiányzó: api/sessions.php");
+} else ok("létezik: api/sessions.php");
+
+const sessionsPhp = fs.readFileSync(path.join(root, "api", "sessions.php"), "utf8");
+if (!sessionsPhp.includes("list_completed_sessions") || !sessionsPhp.includes("require_admin_header")) {
+  fail("api/sessions.php: session list vagy auth hiányzik");
+} else ok("api/sessions.php: list + admin auth");
+
+if (!statePhp.includes("PRERESET") || !statePhp.includes("_restore_state")) {
+  fail("api/state.php: PRERESET vagy _restore_state hiányzik");
+} else ok("api/state.php: snapshots + restore");
+
+if (!statePhp.includes("512 * 1024") || !statePhp.includes("validate_patch_types")) {
+  fail("api/state.php: body limit vagy patch validation hiányzik");
+} else ok("api/state.php: body limit + patch validation");
+
+if (!fs.existsSync(path.join(root, "api", "sanitize.php"))) {
+  fail("hiányzó: api/sanitize.php");
+} else ok("létezik: api/sanitize.php");
+
+if (!fs.existsSync(path.join(root, "api", "state_schema.php"))) {
+  fail("hiányzó: api/state_schema.php");
+} else ok("létezik: api/state_schema.php");
+
+if (!fs.existsSync(path.join(root, "api", "log_lib.php"))) {
+  fail("hiányzó: api/log_lib.php");
+} else ok("létezik: api/log_lib.php");
+
+const logLibPhp = fs.readFileSync(path.join(root, "api", "log_lib.php"), "utf8");
+if (!logLibPhp.includes("nanoportal_log") || !logLibPhp.includes("read_log_lines")) {
+  fail("api/log_lib.php: logging helpers hiányoznak");
+} else ok("api/log_lib.php: logging helpers");
+
+if (!stateLib.includes("nanoportal_log")) {
+  fail("state_lib.php: nanoportal_log használat hiányzik");
+} else ok("state_lib.php: structured logging");
+
+const healthPhp = fs.readFileSync(path.join(root, "api", "health.php"), "utf8");
+if (!healthPhp.includes("state_readable") || !healthPhp.includes("503")) {
+  fail("api/health.php: health checks hiányoznak");
+} else ok("api/health.php: health checks");
+
+const logsPhp = fs.readFileSync(path.join(root, "api", "logs.php"), "utf8");
+if (!logsPhp.includes("require_admin_header") || !logsPhp.includes("read_log_lines")) {
+  fail("api/logs.php: admin log viewer hiányzik");
+} else ok("api/logs.php: admin log viewer");
+
+const sanitizePhp = fs.readFileSync(path.join(root, "api", "sanitize.php"), "utf8");
+if (!sanitizePhp.includes("sanitize_person_name") || !sanitizePhp.includes("sanitize_tts_name")) {
+  fail("api/sanitize.php: sanitizers hiányoznak");
+} else ok("api/sanitize.php: sanitizers");
+
+const registerPhpSan = fs.readFileSync(path.join(root, "api", "register.php"), "utf8");
+if (!registerPhpSan.includes("sanitize_person_name")) {
+  fail("api/register.php: name sanitization hiányzik");
+} else ok("api/register.php: name sanitization");
+
+const audioPhp = fs.readFileSync(path.join(root, "api", "audio.php"), "utf8");
+if (!audioPhp.includes("sanitize_tts_name")) {
+  fail("api/audio.php: TTS name sanitization hiányzik");
+} else ok("api/audio.php: TTS name sanitization");
+if (!audioPhp.includes("tts_names")) {
+  fail("api/audio.php: tts_names action hiányzik");
+} else ok("api/audio.php: tts_names action");
+
+const adminSessionsJs = fs.readFileSync(path.join(root, "shared", "js", "admin-sessions.js"), "utf8");
+if (/tr\.innerHTML\s*=/.test(adminSessionsJs) && adminSessionsJs.includes("players")) {
+  fail("admin-sessions.js: player names innerHTML XSS kockázat");
+} else ok("admin-sessions.js: safe player rendering");
+
 const stateSyncJs = fs.readFileSync(path.join(root, "shared", "js", "state-sync.js"), "utf8");
 if (!stateSyncJs.includes("409") || !stateSyncJs.includes("_rev")) {
   fail("state-sync.js: 409 conflict retry hiányzik");
@@ -524,6 +782,23 @@ if (!devServer.includes("checkWriteToken") || !devServer.includes("NANOPORTAL_AP
 if (!devServer.includes("handleEvents") || !devServer.includes("text/event-stream")) {
   fail("scripts/dev-server.mjs: SSE events endpoint hiányzik");
 } else ok("dev-server.mjs: SSE events endpoint");
+
+if (
+  !devServer.includes("maybeSnapshotOnStatusChange") ||
+  !devServer.includes("/api/sessions.php") ||
+  !devServer.includes("_restore_state")
+) {
+  fail("scripts/dev-server.mjs: snapshot / sessions tükör hiányzik");
+} else ok("dev-server.mjs: snapshot + sessions mirror");
+
+if (
+  !devServer.includes("validatePatchTypes") ||
+  !devServer.includes("sniffImageMime") ||
+  !devServer.includes("sanitizePersonName") ||
+  !devServer.includes("/api/health.php")
+) {
+  fail("dev-server.mjs: validation/sanitize/health tükör hiányzik");
+} else ok("dev-server.mjs: validation + sanitize + health mirror");
 
 if (!fs.existsSync(path.join(root, "docs", "roadmap-blaci.md"))) {
   fail("hiányzó fájl: docs/roadmap-blaci.md");
@@ -591,6 +866,9 @@ else ok("létezik: MIGRATION.md");
 
 if (!fs.existsSync(path.join(root, "ARCHITECTURE.md"))) fail("hiányzó: ARCHITECTURE.md");
 else ok("létezik: ARCHITECTURE.md");
+
+if (!fs.existsSync(path.join(root, "DATABASE.md"))) fail("hiányzó: DATABASE.md");
+else ok("létezik: DATABASE.md");
 
 if (!fs.existsSync(path.join(root, "CHANGELOG.md"))) fail("hiányzó: CHANGELOG.md");
 else ok("létezik: CHANGELOG.md");
@@ -754,6 +1032,18 @@ if (!adminHtml.includes("admin-registrations.js")) {
   fail("admin/index.html: admin-registrations.js hiányzik");
 } else ok("admin/index.html: admin-registrations.js");
 
+if (!adminHtml.includes("session-history-panel") || !adminHtml.includes("admin-sessions.js")) {
+  fail("admin/index.html: munkamenet-előzmények panel hiányzik");
+} else ok("admin/index.html: session history panel");
+
+if (!adminHtml.includes("api-health-badge") || !adminHtml.includes("admin-health.js")) {
+  fail("admin/index.html: health badges / admin-health.js hiányzik");
+} else ok("admin/index.html: health UI");
+
+if (!adminHtml.includes("tts-status-label") || !adminHtml.includes("system-logs-panel")) {
+  fail("admin/index.html: TTS status vagy log panel hiányzik");
+} else ok("admin/index.html: TTS status + logs");
+
 if (
   !adminHtml.includes("/api/upload.php") &&
   !adminHtml.includes("admin-upload.js")
@@ -792,11 +1082,6 @@ if (!adminHtml.includes("btn-tts-names") && !adminHtml.includes("Névfelolvasás
   fail("admin/index.html: névfelolvasás gomb hiányzik");
 } else ok("admin/index.html: TTS names button");
 
-const audioPhp = fs.readFileSync(path.join(root, "api", "audio.php"), "utf8");
-if (!audioPhp.includes("tts_names")) {
-  fail("api/audio.php: tts_names action hiányzik");
-} else ok("api/audio.php: tts_names action");
-
 const cheerCrowdPath = path.join(root, "shared", "assets", "audio", "cheer_crowd.mp3");
 if (!fs.existsSync(cheerCrowdPath)) {
   fail("hiányzó: shared/assets/audio/cheer_crowd.mp3");
@@ -813,6 +1098,10 @@ if (!fs.existsSync(audioReadmePath)) {
 }
 
 const uploadPhp = fs.readFileSync(path.join(root, "api", "upload.php"), "utf8");
+if (!uploadPhp.includes("FILEINFO_MIME_TYPE") || !uploadPhp.includes("image/gif")) {
+  fail("api/upload.php: magic-byte MIME vagy gif hiányzik");
+} else ok("api/upload.php: magic-byte MIME + gif");
+
 if (!uploadPhp.includes("image/heic") || !uploadPhp.includes("10 * 1024 * 1024")) {
   fail("api/upload.php: HEIC vagy max méret hiányzik");
 } else ok("api/upload.php: HEIC + 10MB limit");
@@ -867,6 +1156,10 @@ if (!flowJson.includes("session/control") || !flowJson.includes("fn_session_cont
 if (!flowJson.includes("session/group_contact") || !flowJson.includes("fn_group_contact")) {
   fail("mqtt-to-state.flow.json: session/group_contact → state.php hiányzik");
 } else ok("Node-RED flow: group_contact bridge");
+
+if (!flowJson.includes("system/node-red/heartbeat")) {
+  fail("mqtt-to-state.flow.json: Node-RED heartbeat hiányzik");
+} else ok("Node-RED flow: heartbeat topic");
 
 const displayJs = fs.readFileSync(path.join(root, "display", "display.js"), "utf8");
 if (!displayJs.includes(".pause()") || !displayJs.includes("resolveAssetOrUrl")) {

@@ -170,7 +170,72 @@ function mqttPublishJson(topic, payload, retain = true) {
 const stateFile = path.join(root, "data", "state.json");
 const stateLockFile = stateFile + ".lock";
 const dataDir = path.join(root, "data");
+const appLogFile = path.join(dataDir, "app.log");
+const bootMarkerFile = path.join(dataDir, ".health_boot");
 const audioDir = path.join(root, "shared", "assets", "audio");
+const LOG_MAX_BYTES = 5 * 1024 * 1024;
+
+if (!fs.existsSync(bootMarkerFile)) {
+  fs.mkdirSync(dataDir, { recursive: true });
+  try {
+    fs.writeFileSync(bootMarkerFile, new Date().toISOString(), "utf8");
+  } catch {
+    /* ignore */
+  }
+}
+
+function nanoportalLog(level, message, context = {}) {
+  try {
+    fs.mkdirSync(dataDir, { recursive: true });
+    const entry = { ts: new Date().toISOString(), level, msg: message, context };
+    fs.appendFileSync(appLogFile, JSON.stringify(entry) + "\n", "utf8");
+    if (fs.existsSync(appLogFile) && fs.statSync(appLogFile).size > LOG_MAX_BYTES) {
+      const rotated = appLogFile + "." + new Date().toISOString().replace(/[-:]/g, "").slice(0, 15);
+      fs.renameSync(appLogFile, rotated);
+    }
+  } catch {
+    console.error("[nanoportal]", level, message);
+  }
+}
+
+function readAppLogLines(limit = 50) {
+  if (!fs.existsSync(appLogFile)) return [];
+  const raw = fs.readFileSync(appLogFile, "utf8").trim();
+  if (!raw) return [];
+  return raw
+    .split(/\r?\n/)
+    .slice(-limit)
+    .map((line) => {
+      try {
+        return JSON.parse(line);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean);
+}
+
+function lastAppLogError() {
+  const lines = readAppLogLines(200);
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    if (lines[i].level === "error") {
+      return { msg: String(lines[i].msg ?? ""), at: String(lines[i].ts ?? "") };
+    }
+  }
+  return null;
+}
+
+function uptimeSeconds() {
+  try {
+    if (fs.existsSync(bootMarkerFile)) {
+      const t = Date.parse(fs.readFileSync(bootMarkerFile, "utf8"));
+      if (!Number.isNaN(t)) return Math.max(0, Math.floor((Date.now() - t) / 1000));
+    }
+  } catch {
+    /* ignore */
+  }
+  return 0;
+}
 
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -190,6 +255,120 @@ const MIME = {
 
 function isPlainObject(x) {
   return x !== null && typeof x === "object" && !Array.isArray(x);
+}
+
+const STATE_PATCH_SCHEMA = {
+  status: "string",
+  current_step: "integer",
+  players: "array",
+  pending_registrations: "array",
+  players_confirmed: "boolean",
+  quiz_state: "array",
+  display: "array",
+  audio: "array",
+  hardware: "array",
+  screens: "array",
+  visitors: "array",
+  group_contact: "array",
+  updated_at: "string",
+  _full_reset: "boolean",
+  _restore_state: "boolean",
+  _rev: "integer",
+};
+
+const STATE_STATUS_VALUES = new Set(["IDLE", "RUNNING", "PAUSED", "COMPLETED"]);
+
+const MAX_STATE_BODY_BYTES = 512 * 1024;
+
+function patchValueMatchesType(value, type) {
+  switch (type) {
+    case "string":
+      return typeof value === "string";
+    case "integer":
+      return typeof value === "number" && Number.isInteger(value);
+    case "boolean":
+      return typeof value === "boolean";
+    case "array":
+      return Array.isArray(value) || isPlainObject(value);
+    default:
+      return false;
+  }
+}
+
+function validatePatchTypes(patch) {
+  const errors = [];
+  for (const [key, value] of Object.entries(patch)) {
+    if (!Object.prototype.hasOwnProperty.call(STATE_PATCH_SCHEMA, key)) {
+      errors.push(`unknown key: ${key}`);
+      continue;
+    }
+    const expected = STATE_PATCH_SCHEMA[key];
+    if (!patchValueMatchesType(value, expected)) {
+      errors.push(`invalid type for key ${key}: expected ${expected}`);
+      continue;
+    }
+    if (key === "status" && !STATE_STATUS_VALUES.has(value)) {
+      errors.push("invalid status value");
+    }
+  }
+  return errors;
+}
+
+function validatePatchMaxDepth(value, maxDepth = 12, depth = 0) {
+  if (depth > maxDepth) return "patch exceeds maximum nesting depth";
+  if (!Array.isArray(value) && !isPlainObject(value)) return null;
+  if (Array.isArray(value)) {
+    for (const child of value) {
+      if (Array.isArray(child) || isPlainObject(child)) {
+        const err = validatePatchMaxDepth(child, maxDepth, depth + 1);
+        if (err) return err;
+      }
+    }
+    return null;
+  }
+  for (const child of Object.values(value)) {
+    if (Array.isArray(child) || isPlainObject(child)) {
+      const err = validatePatchMaxDepth(child, maxDepth, depth + 1);
+      if (err) return err;
+    }
+  }
+  return null;
+}
+
+function sanitizePersonName(raw, maxLen = 120) {
+  let name = String(raw ?? "").replace(/<[^>]*>/g, "");
+  name = name.trim();
+  name = name.replace(/[^\p{L}\p{N}\s\-.'']/gu, "");
+  if (name.length > maxLen) {
+    name = [...name].slice(0, maxLen).join("");
+  }
+  return name;
+}
+
+function utf8Len(s) {
+  return [...String(s)].length;
+}
+
+function sniffImageMime(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length < 4) return null;
+  if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) {
+    return { mime: "image/jpeg", ext: "jpg" };
+  }
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) {
+    return { mime: "image/png", ext: "png" };
+  }
+  if (
+    buf.length >= 12 &&
+    buf.subarray(0, 4).toString("ascii") === "RIFF" &&
+    buf.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return { mime: "image/webp", ext: "webp" };
+  }
+  const head = buf.subarray(0, 6).toString("ascii");
+  if (head === "GIF87a" || head === "GIF89a") {
+    return { mime: "image/gif", ext: "gif" };
+  }
+  return null;
 }
 
 function arrayReplaceRecursive(base, patch) {
@@ -439,11 +618,15 @@ function readStateDisk() {
     const d = JSON.parse(raw);
     if (!isPlainObject(d)) {
       console.error("state.json corrupt, resetting to default");
+      nanoportalLog("error", "state.json corrupt, resetting to default");
       return ensureMobilmoziDefaults(defaultStateInline());
     }
     return ensureMobilmoziDefaults(d);
   } catch (e) {
     console.error("state.json corrupt, resetting to default:", e.message || e);
+    nanoportalLog("error", "state.json corrupt, resetting to default", {
+      detail: String(e.message || e),
+    });
     return ensureMobilmoziDefaults(defaultStateInline());
   }
 }
@@ -471,6 +654,155 @@ function loadState() {
   return readStateDisk();
 }
 
+function snapshotRetentionDays() {
+  return envInt("SNAPSHOT_RETENTION_DAYS", 30);
+}
+
+function snapshotsDir() {
+  return path.join(dataDir, "snapshots");
+}
+
+const SNAPSHOT_FILENAME_RE =
+  /^state_(IDLE|RUNNING|COMPLETED|PRERESET)_(\d{8})_(\d{6})\.json$/;
+
+function parseSnapshotFilename(name) {
+  const base = path.basename(name);
+  const m = SNAPSHOT_FILENAME_RE.exec(base);
+  if (!m) return null;
+  const date = m[2];
+  const time = m[3];
+  const iso = `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}T${time.slice(0, 2)}:${time.slice(2, 4)}:${time.slice(4, 6)}Z`;
+  const unix = Date.parse(iso);
+  if (Number.isNaN(unix)) return null;
+  return { label: m[1], date, time, unix, filename: base };
+}
+
+function saveStateSnapshot(label, state) {
+  const safeLabel = String(label).toUpperCase().replace(/[^A-Z0-9_]/g, "");
+  if (!safeLabel) return null;
+  const dir = snapshotsDir();
+  fs.mkdirSync(dir, { recursive: true });
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  const ts = `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}_${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}`;
+  const filename = `state_${safeLabel}_${ts}.json`;
+  const full = path.join(dir, filename);
+  try {
+    fs.writeFileSync(full, JSON.stringify(state, null, 2), "utf8");
+    return filename;
+  } catch {
+    return null;
+  }
+}
+
+function pruneOldSnapshots(dir, days) {
+  if (days < 1 || !fs.existsSync(dir)) return;
+  const cutoff = Date.now() - days * 86400000;
+  for (const name of fs.readdirSync(dir)) {
+    if (!name.endsWith(".json")) continue;
+    const full = path.join(dir, name);
+    try {
+      if (fs.statSync(full).isFile() && fs.statSync(full).mtimeMs < cutoff) {
+        fs.unlinkSync(full);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function maybeSnapshotOnStatusChange(current, next) {
+  const prev = String(current.status ?? "");
+  const neu = String(next.status ?? "");
+  const triggers = ["IDLE", "RUNNING", "COMPLETED"];
+  if (prev === neu || !triggers.includes(neu)) return;
+  saveStateSnapshot(neu, next);
+  pruneOldSnapshots(snapshotsDir(), snapshotRetentionDays());
+}
+
+function listSnapshotFiles() {
+  const dir = snapshotsDir();
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((name) => parseSnapshotFilename(name))
+    .sort((a, b) => {
+      const pa = parseSnapshotFilename(a);
+      const pb = parseSnapshotFilename(b);
+      return (pb?.unix ?? 0) - (pa?.unix ?? 0);
+    });
+}
+
+function snapshotFilePath(filename) {
+  const parsed = parseSnapshotFilename(filename);
+  if (!parsed) return null;
+  const dir = snapshotsDir();
+  const full = path.join(dir, parsed.filename);
+  const realDir = fs.realpathSync(dir);
+  const realFull = fs.realpathSync(full);
+  if (!realFull.startsWith(realDir + path.sep)) return null;
+  return realFull;
+}
+
+function extractPlayerNames(state) {
+  const players = state.players;
+  if (!Array.isArray(players)) return [];
+  const names = [];
+  for (const p of players) {
+    if (isPlainObject(p)) {
+      const name = String(p.name ?? "").trim();
+      if (name) names.push(name);
+    } else if (typeof p === "string" && p.trim()) {
+      names.push(p.trim());
+    }
+  }
+  return names;
+}
+
+function findRunningBefore(completedUnix) {
+  const dir = snapshotsDir();
+  if (!fs.existsSync(dir)) return null;
+  let best = null;
+  for (const name of fs.readdirSync(dir)) {
+    const parsed = parseSnapshotFilename(name);
+    if (!parsed || parsed.label !== "RUNNING" || parsed.unix > completedUnix) continue;
+    if (best === null || parsed.unix > best) best = parsed.unix;
+  }
+  return best;
+}
+
+function listCompletedSessions(limit = 10) {
+  const sessions = [];
+  for (const filename of listSnapshotFiles()) {
+    const parsed = parseSnapshotFilename(filename);
+    if (!parsed || parsed.label !== "COMPLETED") continue;
+    const full = snapshotFilePath(filename);
+    if (!full || !fs.existsSync(full)) continue;
+    let state;
+    try {
+      state = JSON.parse(fs.readFileSync(full, "utf8"));
+    } catch {
+      continue;
+    }
+    if (!isPlainObject(state)) continue;
+    const runningUnix = findRunningBefore(parsed.unix);
+    let durationMinutes = null;
+    if (runningUnix != null) {
+      durationMinutes = Math.max(0, Math.round((parsed.unix - runningUnix) / 60000));
+    }
+    const iso = `${parsed.date.slice(0, 4)}-${parsed.date.slice(4, 6)}-${parsed.date.slice(6, 8)}T${parsed.time.slice(0, 2)}:${parsed.time.slice(2, 4)}:${parsed.time.slice(4, 6)}Z`;
+    sessions.push({
+      filename: parsed.filename,
+      completed_at: iso,
+      players: extractPlayerNames(state),
+      steps_completed: Number(state.current_step ?? 0),
+      duration_minutes: durationMinutes,
+    });
+    if (sessions.length >= limit) break;
+  }
+  return sessions;
+}
+
 function saveState(state) {
   try {
     state.updated_at = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
@@ -494,6 +826,7 @@ function modifyState(mutator) {
     }
     if (!next) return null;
     const bumped = bumpStateRev(ensureMobilmoziDefaults(next), current);
+    maybeSnapshotOnStatusChange(current, bumped);
     if (!saveState(bumped)) return null;
     return bumped;
   });
@@ -586,11 +919,26 @@ function checkAdminHeader(req, res) {
   return true;
 }
 
-function readBody(req) {
+function readBody(req, maxBytes = Infinity) {
   return new Promise((resolve, reject) => {
     const chunks = [];
-    req.on("data", (c) => chunks.push(c));
-    req.on("end", () => resolve(Buffer.concat(chunks)));
+    let total = 0;
+    let rejected = false;
+    req.on("data", (c) => {
+      if (rejected) return;
+      total += c.length;
+      if (total > maxBytes) {
+        rejected = true;
+        const err = new Error("body too large");
+        err.code = "BODY_TOO_LARGE";
+        reject(err);
+        return;
+      }
+      chunks.push(c);
+    });
+    req.on("end", () => {
+      if (!rejected) resolve(Buffer.concat(chunks));
+    });
     req.on("error", reject);
   });
 }
@@ -647,16 +995,12 @@ async function handleUpload(req, res) {
   const kindRaw = kindPart ? kindPart.data.toString("utf8").trim() : "photobooth";
   const prefixMap = { photobooth: "photobooth", visitor: "visitor", window: "window" };
   const prefix = prefixMap[kindRaw] || "photobooth";
-  const mimeMap = {
-    "image/jpeg": "jpg",
-    "image/png": "png",
-    "image/webp": "webp",
-  };
-  const ext = mimeMap[photo.contentType];
-  if (!ext) {
-    sendJson(res, 415, { error: "Unsupported image type" });
+  const sniffed = sniffImageMime(photo.data);
+  if (!sniffed) {
+    sendJson(res, 415, { error: "unsupported image type: unknown" });
     return;
   }
+  const ext = sniffed.ext;
   const rand = [...crypto.getRandomValues(new Uint8Array(4))]
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
@@ -685,6 +1029,87 @@ function handleStorage(req, res) {
     return;
   }
   sendJson(res, 200, storageSummary());
+}
+
+function handleHealth(req, res) {
+  if (req.method !== "GET") {
+    sendJson(res, 405, { error: "Method not allowed" });
+    return;
+  }
+  const stateReadable =
+    !fs.existsSync(stateFile) || (fs.existsSync(stateFile) && fs.statSync(stateFile).isFile());
+  const state = loadState();
+  let dataDirWritable = false;
+  try {
+    fs.mkdirSync(dataDir, { recursive: true });
+    const probe = path.join(dataDir, ".write_probe_" + process.pid);
+    fs.writeFileSync(probe, "ok");
+    fs.unlinkSync(probe);
+    dataDirWritable = true;
+  } catch {
+    dataDirWritable = false;
+  }
+  let stateWritable = dataDirWritable;
+  if (fs.existsSync(stateFile)) {
+    try {
+      fs.accessSync(stateFile, fs.constants.W_OK);
+      stateWritable = true;
+    } catch {
+      stateWritable = false;
+    }
+  }
+  const lastError = lastAppLogError();
+  const ttsStatus = String(state?.audio?.last_placeholder?.status ?? "idle");
+  const checks = {
+    state_readable: stateReadable,
+    state_writable: Boolean(stateWritable),
+    state_rev: Number(state._rev ?? 0),
+    data_dir_writable: dataDirWritable,
+    elevenlabs_key_set: Boolean(String(process.env.ELEVENLABS_API_KEY ?? "").trim()),
+    tts_status: ttsStatus,
+    last_error: lastError?.msg ?? null,
+    last_error_at: lastError?.at ?? null,
+    uptime_seconds: uptimeSeconds(),
+  };
+  const ok = checks.state_readable && checks.data_dir_writable;
+  sendJson(res, ok ? 200 : 503, { ok, checks });
+}
+
+function handleLogs(req, res) {
+  if (req.method !== "GET") {
+    sendJson(res, 405, { error: "Method not allowed" });
+    return;
+  }
+  if (!checkAdminHeader(req, res)) return;
+  sendJson(res, 200, { lines: readAppLogLines(50) });
+}
+
+function handleSessions(req, res, url) {
+  if (req.method !== "GET") {
+    sendJson(res, 405, { error: "Method not allowed" });
+    return;
+  }
+  if (!checkAdminHeader(req, res)) return;
+  const file = String(url.searchParams.get("file") ?? "").trim();
+  if (file) {
+    const full = snapshotFilePath(file);
+    if (!full || !fs.existsSync(full)) {
+      sendJson(res, 404, { error: "Snapshot not found" });
+      return;
+    }
+    try {
+      const state = JSON.parse(fs.readFileSync(full, "utf8"));
+      if (!isPlainObject(state)) {
+        sendJson(res, 500, { error: "Invalid snapshot JSON" });
+        return;
+      }
+      sendJson(res, 200, state);
+    } catch {
+      sendJson(res, 500, { error: "Failed to read snapshot" });
+    }
+    return;
+  }
+  sendJson(res, 200, { sessions: listCompletedSessions(10) });
 }
 
 function handlePhotoboothList(req, res) {
@@ -776,7 +1201,21 @@ async function handleState(req, res) {
   }
   if (req.method === "POST") {
     if (!checkWriteToken(req, res)) return;
-    const raw = (await readBody(req)).toString("utf8");
+    let rawBuf;
+    try {
+      rawBuf = await readBody(req, MAX_STATE_BODY_BYTES + 1);
+    } catch (e) {
+      if (e && e.code === "BODY_TOO_LARGE") {
+        sendJson(res, 413, { error: "request body too large" });
+        return;
+      }
+      throw e;
+    }
+    if (rawBuf.length > MAX_STATE_BODY_BYTES) {
+      sendJson(res, 413, { error: "request body too large" });
+      return;
+    }
+    const raw = rawBuf.toString("utf8");
     if (!raw.trim()) {
       sendJson(res, 400, { error: "Empty body" });
       return;
@@ -792,11 +1231,22 @@ async function handleState(req, res) {
       sendJson(res, 400, { error: "Invalid JSON payload" });
       return;
     }
+    const typeErrors = validatePatchTypes(patch);
+    if (typeErrors.length) {
+      sendJson(res, 400, { error: "validation_failed", details: typeErrors });
+      return;
+    }
+    const depthError = validatePatchMaxDepth(patch);
+    if (depthError) {
+      sendJson(res, 400, { error: "validation_failed", details: [depthError] });
+      return;
+    }
     if (patch._full_reset) {
       if (!checkAdminHeader(req, res)) return;
       const fresh = modifyState((current) => {
         const conflict = checkPatchRev(current, patch);
         if (conflict) return conflict;
+        saveStateSnapshot("PRERESET", current);
         return defaultStateInline();
       });
       if (fresh && fresh.conflict) {
@@ -808,6 +1258,27 @@ async function handleState(req, res) {
         return;
       }
       sendJson(res, 200, fresh);
+      return;
+    }
+    if (patch._restore_state) {
+      if (!checkAdminHeader(req, res)) return;
+      const restored = modifyState((current) => {
+        const conflict = checkPatchRev(current, patch);
+        if (conflict) return conflict;
+        const clean = stripRevFromPatch(patch);
+        delete clean._restore_state;
+        delete clean._full_reset;
+        return clean;
+      });
+      if (restored && restored.conflict) {
+        sendJson(res, 409, { error: "conflict", current_rev: restored.current_rev });
+        return;
+      }
+      if (!restored) {
+        sendJson(res, 500, { error: "Failed to persist state" });
+        return;
+      }
+      sendJson(res, 200, restored);
       return;
     }
     const merged = modifyState((current) => {
@@ -883,9 +1354,25 @@ function handleEvents(req, res) {
 const TTS_FALLBACK_CLIP = "cheer_crowd.mp3";
 const ELEVENLABS_DEFAULT_VOICE_ID = "pNInz6obpgDQGcFmaJgB";
 
+function sanitizeTtsName(raw) {
+  let name = String(raw ?? "").replace(/<[^>]*>/g, "");
+  name = name.trim();
+  name = name.replace(/[^\p{L}\p{N}\s\-.]/gu, "");
+  if (name.length > 60) {
+    name = [...name].slice(0, 60).join("");
+  }
+  return name;
+}
+
 function normalizeTtsNames(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw.map((n) => String(n ?? "").trim()).filter(Boolean);
+  const names = [];
+  for (const n of raw) {
+    const clean = sanitizeTtsName(n);
+    if (clean) names.push(clean);
+    if (names.length >= 20) break;
+  }
+  return names;
 }
 
 function patchAudioPlaceholder(state, placeholder) {
@@ -1060,13 +1547,9 @@ async function handleRegister(req, res) {
       sendJson(res, 400, { error: "Expected JSON: {\"name\":\"...\"}" });
       return;
     }
-    const name = payload.name.trim();
-    if (!name) {
-      sendJson(res, 400, { error: "Name must not be empty" });
-      return;
-    }
-    if (name.length > 120) {
-      sendJson(res, 400, { error: "Name too long (max 120)" });
+    const name = sanitizePersonName(payload.name);
+    if (utf8Len(name) < 1 || utf8Len(name) > 120) {
+      sendJson(res, 400, { error: "name must be 1–120 chars" });
       return;
     }
     let entry = null;
@@ -1146,6 +1629,18 @@ const server = http.createServer(async (req, res) => {
     }
     if (p === "/api/storage.php" && req.method === "GET") {
       handleStorage(req, res);
+      return;
+    }
+    if (p === "/api/health.php" && req.method === "GET") {
+      handleHealth(req, res);
+      return;
+    }
+    if (p === "/api/logs.php" && req.method === "GET") {
+      handleLogs(req, res);
+      return;
+    }
+    if (p === "/api/sessions.php" && req.method === "GET") {
+      handleSessions(req, res, url);
       return;
     }
     if (p === "/api/register.php") {
