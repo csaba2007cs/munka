@@ -103,6 +103,53 @@
         border-color: color-mix(in srgb, var(--danger) 40%, transparent);
       }
 
+      .admin-header-mqtt .badge-ok,
+      .admin-header-mqtt .badge-warn,
+      .admin-header-mqtt .badge-err {
+        margin: 0;
+        font-family: var(--font-mono);
+        font-size: var(--text-sm);
+        padding: var(--space-1) var(--space-2);
+        border-radius: var(--radius-sm);
+        border: var(--border-width) solid var(--panel-border);
+        white-space: nowrap;
+      }
+
+      .admin-header-mqtt .badge-ok {
+        color: var(--cyan-400);
+      }
+
+      .admin-header-mqtt .badge-warn {
+        color: var(--warning, #e6a817);
+        border-color: color-mix(in srgb, var(--warning, #e6a817) 40%, transparent);
+      }
+
+      .admin-header-mqtt .badge-err {
+        color: var(--danger);
+        border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+      }
+
+      #tts-status-bar {
+        font-family: var(--font-mono);
+        font-size: var(--text-sm);
+        color: var(--text-muted);
+        margin-top: var(--space-2);
+      }
+
+      .log-viewer {
+        margin: 0;
+        max-height: 280px;
+        overflow: auto;
+        font-family: var(--font-mono);
+        font-size: var(--text-xs);
+        white-space: pre-wrap;
+        word-break: break-word;
+        background: var(--void-900);
+        border: var(--border-width) solid var(--panel-border);
+        border-radius: var(--radius-sm);
+        padding: var(--space-3);
+      }
+
       #broker-url {
         font-family: var(--font-mono);
         font-size: var(--text-xs);
@@ -182,6 +229,40 @@
         letter-spacing: var(--tracking-hud);
         color: var(--text-muted);
         text-transform: uppercase;
+      }
+
+      .sessions-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: var(--text-sm);
+      }
+
+      .sessions-table th,
+      .sessions-table td {
+        padding: var(--space-2) var(--space-3);
+        border-bottom: var(--border-width) solid var(--panel-border);
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .sessions-table th {
+        font-family: var(--font-display);
+        font-size: var(--text-xs);
+        letter-spacing: var(--tracking-hud);
+        color: var(--text-muted);
+        text-transform: uppercase;
+      }
+
+      .sessions-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: var(--space-2);
+        white-space: nowrap;
+      }
+
+      .btn-neon-sm {
+        padding: var(--space-1) var(--space-2);
+        font-size: var(--text-xs);
       }
 
       .contact-row,
@@ -562,6 +643,8 @@
     <script src="/shared/js/api-auth.js"></script>
     <script src="/shared/js/admin-upload.js"></script>
     <script src="/shared/js/admin-registrations.js"></script>
+    <script src="/shared/js/admin-sessions.js"></script>
+    <script src="/shared/js/admin-health.js"></script>
     <script src="/shared/js/mqtt-client.js"></script>
   </head>
   <body class="admin-shell">
@@ -569,6 +652,9 @@
       <h1 class="admin-title">Nanoportal operátor</h1>
       <div class="admin-header-mqtt">
         <p id="mqtt-status" role="status">○ MQTT: kapcsolódás...</p>
+        <span id="api-health-badge" class="badge-ok" role="status">API …</span>
+        <span id="tts-health-badge" class="badge-ok" role="status">TTS idle</span>
+        <span id="nodered-health-badge" class="badge-warn" role="status">Node-RED …</span>
         <span id="storage-badge" class="badge-ok" role="status">—</span>
         <button type="button" id="btn-broker" class="btn-neon btn-broker">BROKER?</button>
         <button type="button" id="btn-api-token" class="btn-neon btn-broker">TOKEN?</button>
@@ -676,6 +762,20 @@
       </section>
     </details>
 
+    <details class="visitor-panel" id="session-history-panel">
+      <summary>Munkamenet-előzmények</summary>
+      <section class="visitor-block">
+        <p class="section-lead">
+          Automatikus pillanatképek <code>IDLE</code> / <code>RUNNING</code> / <code>COMPLETED</code> állapotváltáskor.
+          A teljes alaphelyzet (<code>_full_reset</code>) előtt <code>PRERESET</code> mentés készül.
+        </p>
+        <div id="session-history-list"></div>
+        <div class="visitor-actions">
+          <button type="button" class="btn-neon" id="btn-refresh-sessions">Frissítés</button>
+        </div>
+      </section>
+    </details>
+
     <details class="visitor-panel window-panel" open>
       <summary>Ablakkép</summary>
       <div class="window-previews">
@@ -725,8 +825,22 @@
           <button type="button" class="btn-neon" id="btn-clear-visitors">🗑 Látogatók törlése</button>
         </div>
         <button type="button" class="btn-neon btn-cta" id="btn-tts-names" disabled>🎤 Névfelolvasás indítása</button>
+        <div id="tts-status-bar">
+          TTS: <span id="tts-status-label">idle</span>
+        </div>
         <span id="tts-names-status" class="badge-ok" hidden></span>
         <audio id="tts-names-player" hidden></audio>
+      </section>
+    </details>
+
+    <details class="visitor-panel" id="system-logs-panel">
+      <summary>Rendszernapló</summary>
+      <section class="visitor-block">
+        <p class="section-lead">Utolsó 50 JSON sor a <code>data/app.log</code> fájlból (admin).</p>
+        <div id="system-logs-list"></div>
+        <div class="visitor-actions">
+          <button type="button" class="btn-neon" id="btn-refresh-logs">Frissítés</button>
+        </div>
       </section>
     </details>
 
@@ -765,9 +879,11 @@
           "bigscreen/layer",
           "smallscreen/layer",
           "session/registrations",
+          "system/node-red/heartbeat",
         ];
 
         let registrationsUi = null;
+        let healthUi = null;
 
         const Mqtt = window.NanoportalMqtt;
         let mqttClient = null;
@@ -883,6 +999,10 @@
           }
           if (topic === "session/registrations") {
             registrationsUi?.refreshFromMqtt(text);
+            return;
+          }
+          if (topic === "system/node-red/heartbeat") {
+            healthUi?.recordNoderedHeartbeat(text);
             return;
           }
           if (topic !== "smallscreen/quiz/result") return;
@@ -1167,6 +1287,7 @@
             btnTtsNames.textContent = "🎤 Generálás...";
           }
           showTtsNamesStatus(null, "");
+          healthUi?.applyTtsHealth("pending");
           try {
             const Auth = window.NanoportalAuth;
             const headers = Auth
@@ -1182,20 +1303,25 @@
             });
             if (!res.ok) {
               showTtsNamesStatus("err", "✕ Hiba: " + String(data.error || res.status));
+              healthUi?.applyTtsHealth("error");
               return;
             }
             if (data.url) {
               showTtsNamesStatus("ok", "✓ Hang kész");
+              healthUi?.applyTtsHealth("ready");
               playTtsAudio(data.url);
             } else if (data.fallback) {
               const clip = String(data.fallback_clip || "cheer_crowd.mp3");
               showTtsNamesStatus("warn", "⚠ Fallback hang lejátszva");
+              healthUi?.applyTtsHealth("fallback");
               playTtsAudio("/shared/assets/audio/" + encodeURIComponent(clip));
             } else {
               showTtsNamesStatus("err", "✕ Hiba: ismeretlen válasz");
+              healthUi?.applyTtsHealth("error");
             }
           } catch (err) {
             showTtsNamesStatus("err", "✕ Hiba: " + String(err && err.message ? err.message : err));
+            healthUi?.applyTtsHealth("error");
           } finally {
             if (btnTtsNames) {
               btnTtsNames.textContent = origLabel;
@@ -1945,6 +2071,32 @@
             pollMs: 30000,
             onToast: function (msg, ok) {
               console.log("[registrations]", ok ? "OK" : "ERR", msg);
+            },
+          });
+        }
+
+        if (window.NanoportalAdminSessions) {
+          window.NanoportalAdminSessions.init({
+            panelEl: document.getElementById("session-history-panel"),
+            listEl: document.getElementById("session-history-list"),
+            refreshBtn: document.getElementById("btn-refresh-sessions"),
+            onToast: function (msg, ok) {
+              console.log("[sessions]", ok ? "OK" : "ERR", msg);
+            },
+          });
+        }
+
+        if (window.NanoportalAdminHealth) {
+          healthUi = window.NanoportalAdminHealth.init({
+            apiHealthEl: document.getElementById("api-health-badge"),
+            ttsHealthEl: document.getElementById("tts-health-badge"),
+            ttsStatusLabelEl: document.getElementById("tts-status-label"),
+            noderedHealthEl: document.getElementById("nodered-health-badge"),
+            logsListEl: document.getElementById("system-logs-list"),
+            logsPanelEl: document.getElementById("system-logs-panel"),
+            logsRefreshBtn: document.getElementById("btn-refresh-logs"),
+            onToast: function (msg, ok) {
+              console.log("[health]", ok ? "OK" : "ERR", msg);
             },
           });
         }

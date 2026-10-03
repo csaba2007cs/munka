@@ -206,5 +206,60 @@
     "x": 860,
     "y": 140,
     "wires": []
+  },
+  {
+    "id": "inject_nodered_heartbeat",
+    "type": "inject",
+    "z": "nanoportal_tab",
+    "name": "Heartbeat 30s",
+    "props": [
+      {
+        "p": "payload"
+      }
+    ],
+    "repeat": "30",
+    "crontab": "",
+    "once": true,
+    "onceDelay": 1,
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 170,
+    "y": 420,
+    "wires": [["fn_nodered_heartbeat"]]
+  },
+  {
+    "id": "fn_nodered_heartbeat",
+    "type": "function",
+    "z": "nanoportal_tab",
+    "name": "system/node-red/heartbeat",
+    "func": "msg.topic = 'system/node-red/heartbeat';\nmsg.payload = JSON.stringify({ at: new Date().toISOString(), ok: true });\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 420,
+    "y": 420,
+    "wires": [["mqtt_out_heartbeat"]]
+  },
+  {
+    "id": "mqtt_out_heartbeat",
+    "type": "mqtt out",
+    "z": "nanoportal_tab",
+    "name": "publish heartbeat",
+    "topic": "system/node-red/heartbeat",
+    "qos": "0",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "nanoportal_broker",
+    "x": 660,
+    "y": 420,
+    "wires": []
   }
 ]

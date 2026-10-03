@@ -20,6 +20,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/state_lib.php';
 require_once __DIR__ . '/env.php';
 require_once __DIR__ . '/storage_lib.php';
+require_once __DIR__ . '/sanitize.php';
+require_once __DIR__ . '/log_lib.php';
 
 $root = dirname(__DIR__);
 load_dotenv_if_present($root);
@@ -88,9 +90,12 @@ function normalize_tts_names(mixed $raw): array
         if (!is_string($name) && !is_numeric($name)) {
             continue;
         }
-        $trimmed = trim((string) $name);
-        if ($trimmed !== '') {
-            $names[] = $trimmed;
+        $clean = sanitize_tts_name((string) $name);
+        if ($clean !== '') {
+            $names[] = $clean;
+        }
+        if (count($names) >= 20) {
+            break;
         }
     }
 
@@ -149,6 +154,7 @@ function handle_tts_names(array $names, string $audioDir, string $dataDir, strin
 
     $apiKey = trim((string) (getenv('ELEVENLABS_API_KEY') ?: ''));
     if ($apiKey === '') {
+        nanoportal_log('warn', 'TTS fallback: ElevenLabs API key not set', ['names' => $names]);
         $fallbackPath = $audioDir . DIRECTORY_SEPARATOR . TTS_FALLBACK_CLIP;
         if (!is_dir($audioDir) && !mkdir($audioDir, 0755, true) && !is_dir($audioDir)) {
             http_response_code(500);
@@ -179,6 +185,10 @@ function handle_tts_names(array $names, string $audioDir, string $dataDir, strin
     $result = elevenlabs_tts($apiKey, $voiceId, $text);
 
     if (!$result['ok']) {
+        nanoportal_log('error', 'ElevenLabs TTS failed', [
+            'error' => $result['error'] ?? 'unknown',
+            'names' => $names,
+        ]);
         modify_state_locked($stateFile, static function (array $state): array {
             return patch_audio_placeholder($state, ['status' => 'error']);
         });

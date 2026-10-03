@@ -1,6 +1,9 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/snapshots_lib.php';
+require_once __DIR__ . '/log_lib.php';
+
 function default_state(): array
 {
     return [
@@ -210,7 +213,9 @@ function decode_state_raw(string $raw): array
     }
     $decoded = json_decode($raw, true);
     if (!is_array($decoded) || json_last_error() !== JSON_ERROR_NONE) {
-        error_log('state.json corrupt, resetting to default');
+        nanoportal_log('error', 'state.json corrupt, resetting to default', [
+            'raw' => substr($raw, 0, 100),
+        ]);
 
         return default_state();
     }
@@ -368,7 +373,9 @@ function modify_state_locked(string $path, callable $mutator)
     }
     $next = ensure_mobilmozi_defaults($next);
     $next = bump_state_rev($next, $current);
+    maybe_snapshot_on_status_change($dir, $current, $next);
     if (!atomic_write_state($path, $next)) {
+        nanoportal_log('error', 'Failed to persist state.json', ['path' => $path]);
         flock($fp, LOCK_UN);
         fclose($fp);
 
@@ -432,6 +439,9 @@ function require_write_token(): void
     }
     $header = (string) ($_SERVER['HTTP_X_NANOPORTAL_TOKEN'] ?? '');
     if (!hash_equals((string) $token, $header)) {
+        nanoportal_log('warn', 'Unauthorized write request', [
+            'endpoint' => basename((string) ($_SERVER['SCRIPT_NAME'] ?? 'unknown')),
+        ]);
         http_response_code(401);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['error' => 'unauthorized'], JSON_UNESCAPED_UNICODE);
@@ -443,6 +453,9 @@ function require_admin_header(): void
 {
     $admin = trim((string) ($_SERVER['HTTP_X_NANOPORTAL_ADMIN'] ?? ''));
     if ($admin !== '1') {
+        nanoportal_log('warn', 'Admin header required', [
+            'endpoint' => basename((string) ($_SERVER['SCRIPT_NAME'] ?? 'unknown')),
+        ]);
         http_response_code(403);
         header('Content-Type: application/json; charset=utf-8');
         echo json_encode(['error' => 'admin_required'], JSON_UNESCAPED_UNICODE);

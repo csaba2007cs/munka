@@ -1,6 +1,8 @@
 # Runtime / generated
 data/photobooth_*.jpg
 data/*.jpg
+data/snapshots/
+data/.health_boot
 *.log
 
 # OS / editor
@@ -19,3 +21,5 @@ admin/.htpasswd
 # Optional local assets (uncomment if you add large media and do not want them in git)
 # shared/assets/audio/
 # shared/assets/video/
+/scripts
+/scripts

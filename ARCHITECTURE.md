@@ -31,4 +31,12 @@
 
 Legacy HTTP polling endpoints (`GET /api/state.php`, SSE `/api/events.php`) remain during the backward-compat window for tooling and integration tests.
 
+## Backups & history
+
+- **`data/snapshots/`** — automatic JSON on `IDLE` / `RUNNING` / `COMPLETED` transitions and before `_full_reset` (`PRERESET`)
+- **`GET /api/sessions.php`** — last 10 completed sessions (admin header)
+- Admin **Munkamenet-előzmények** panel — browse, download, restore
+
+See [DATABASE.md](DATABASE.md).
+
 See [MIGRATION.md](MIGRATION.md) and [CHANGELOG.md](CHANGELOG.md).

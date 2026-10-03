@@ -40,6 +40,26 @@ if (!is_string($tmp) || !is_uploaded_file($tmp)) {
     exit;
 }
 
+// Magic-byte MIME detection — client Content-Type is not trusted.
+$finfo = new finfo(FILEINFO_MIME_TYPE);
+$mime = $finfo->file($tmp);
+$map = [
+    'image/jpeg' => 'jpg',
+    'image/png' => 'png',
+    'image/webp' => 'webp',
+    'image/gif' => 'gif',
+    'image/heic' => 'heic',
+    'image/heif' => 'heif',
+];
+if (!is_string($mime) || !isset($map[$mime])) {
+    http_response_code(415);
+    echo json_encode(
+        ['error' => 'unsupported image type: ' . (is_string($mime) ? $mime : 'unknown')],
+        JSON_UNESCAPED_UNICODE,
+    );
+    exit;
+}
+
 $max_size = 10 * 1024 * 1024;
 if (($file['size'] ?? 0) > $max_size) {
     http_response_code(413);
@@ -47,27 +67,10 @@ if (($file['size'] ?? 0) > $max_size) {
     exit;
 }
 
-$finfo = new finfo(FILEINFO_MIME_TYPE);
-$mime = $finfo->file($tmp);
-$map = [
-    'image/jpeg' => 'jpg',
-    'image/png' => 'png',
-    'image/webp' => 'webp',
-    'image/heic' => 'heic',
-    'image/heif' => 'heif',
-];
-if (!isset($map[$mime])) {
-    http_response_code(415);
-    echo json_encode(['error' => 'Unsupported image type'], JSON_UNESCAPED_UNICODE);
-    exit;
-}
-
 $ext = $map[$mime];
 $dataDir = dirname(__DIR__) . DIRECTORY_SEPARATOR . 'data';
 if (!is_dir($dataDir) && !mkdir($dataDir, 0755, true) && !is_dir($dataDir)) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Cannot write data directory'], JSON_UNESCAPED_UNICODE);
-    exit;
+    api_json_error(500, 'Cannot write data directory');
 }
 
 $kind = isset($_POST['kind']) ? (string) $_POST['kind'] : 'photobooth';
@@ -81,9 +84,7 @@ $name = $prefix . '_' . gmdate('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.'
 $dest = $dataDir . DIRECTORY_SEPARATOR . $name;
 
 if (!move_uploaded_file($tmp, $dest)) {
-    http_response_code(500);
-    echo json_encode(['error' => 'Save failed'], JSON_UNESCAPED_UNICODE);
-    exit;
+    api_json_error(500, 'Upload save failed', ['filename' => $name]);
 }
 
 if (in_array($mime, ['image/heic', 'image/heif'], true)) {
