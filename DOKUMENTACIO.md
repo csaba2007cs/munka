@@ -9,9 +9,7 @@ Dokumentáció a helyi webszerveren futó, több képernyős és tablet-es sci-f
 - **Vezérlő VM:** Ubuntu 24.04 LTS, Apache + PHP, opcionálisan Dockerben Node-RED (MQTT, ESP32, hang, WebSocket).
 - **Adat:** első körben fájlalapú — `data/state.json`. Később cserélhető MariaDB-re ugyanazzal az API-felületi logikával.
 - **Kliensek:** admin tablet, látogatói regisztráció (`/register/`), quiz érintőkijelző, nagy TV (`display`). Mindegyik ugyanazt az állapotot olvassa/írja a `/api/state.php` (és regisztráció: `/api/register.php`) végponton keresztül.
-- ** igények vs. prototípus:** összevető backlog — [docs/roadmap-blaci.md](docs/roadmap-blaci.md).
-
----
+- ** igények vs. prototípus:** összevető backlog — [docs/roadmap-blaci.md].
 
 ## 2. Könyvtárstruktúra (telepítési cél: `/var/www/html/`)
 
