@@ -219,6 +219,59 @@ Az **admin**, **bigscreen** és **smallscreen** oldalak Mosquitto WebSocketen (`
 - Példa konfig: [`hardware/mosquitto/mosquitto.conf.example`](hardware/mosquitto/mosquitto.conf.example)
 - Broker felülírás: `?broker=ws://…`
 
+#### Ténylegesen tesztelt MQTT parancsok
+
+Az alábbi parancsokat a telepített Eclipse Mosquitto klienssel futtattam:
+
+```text
+Mosquitto kliens: C:\Program Files\mosquitto\mosquitto_pub.exe
+Tesztbroker:      127.0.0.1
+Port:             1884
+Felhasználó:      user1
+Jelszó:           Atlasz2026
+Eredmény:         Published=25, Received=25, Failed=0
+```
+
+```powershell
+$mosquitto = "C:\Program Files\mosquitto"
+
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -t session/control -m start
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -t session/control -m pause
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -t session/control -m reset
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -t session/control -m complete
+
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -r -t bigscreen/photo -m /data/photobooth_latest.jpg
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -r -t bigscreen/layer -m photo
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -r -t bigscreen/video -m intro.mp4
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -r -t bigscreen/layer -m video
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -t bigscreen/video/play -m play
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -t bigscreen/video/pause -m pause
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -t bigscreen/video/reset -m reset
+
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -r -t bigscreen/players -m '[{"name":"Alice","photo":"/data/alice.jpg"},{"name":"Bob","photo":"/data/bob.jpg"}]'
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -r -t bigscreen/celebration/background -m crowd_europe
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -r -t bigscreen/celebration/cheer -m cheer.mp3
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -t bigscreen/layer -m celebration
+
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -r -t smallscreen/quiz -m '[{"question":"Melyik a helyes válasz?","answers":[{"text":"A","correct":true},{"text":"B","correct":false}]}]'
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -r -t smallscreen/layer -m quiz
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -r -t smallscreen/photo -m /shared/assets/images/small-idle.svg
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -r -t smallscreen/layer -m photo
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -r -t smallscreen/video -m intro.mp4
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -r -t smallscreen/layer -m video
+
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -t nanoportal/esp32/zone-a -m '{"device":"esp32-zone-a","type":"motion","at":"2026-10-03T13:00:00Z"}'
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -t mobilmozi/screen/big/layer -m '{"screens":{"big":{"layer":"celebration"}}}'
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -t mobilmozi/show/command -m '{"status":"RUNNING"}'
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -t session/group_contact -m '{"emails":["csoport@pelda.hu"],"phones":["+36123456789"]}'
+```
+
+Az üzenetek ellenőrzéséhez:
+
+```powershell
+& "$mosquitto\mosquitto_sub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -t "#" -v -C 25
+```
+
 ### 6.1 Quiz (`/quiz/`)
 
 - A `quiz_state` és `status` alapján rajzol: fejléc, lépésjelző, kérdés, gombok, visszajelző, jobb oldali sáv, HUD hullám + szkennelés.
