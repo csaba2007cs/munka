@@ -5,7 +5,18 @@
   # Allow getUserMedia on this origin (tablet admin over HTTPS).
   Header always set Permissions-Policy "camera=(self), microphone=()"
   Header always set Feature-Policy "camera 'self'; microphone 'none'"
+
+  # Video is served directly by Apache. Never compress or transform it.
+  <FilesMatch "\.(mp4|m4v|webm)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+    Header set Accept-Ranges "bytes"
+    SetEnv no-gzip 1
+    SetEnv dont-vary 1
+  </FilesMatch>
 </IfModule>
+
+AddType video/mp4 .mp4 .m4v
+AddType video/webm .webm
 
 # SSE — keep long-lived /api/events.php connections alive.
 # TimeOut / KeepAliveTimeout are best set in the vhost (e.g. TimeOut 300).

@@ -1,44 +1,45 @@
-# Migration guide — v1 polling → v2 MQTT
+# Migrációs útmutató — v1 polling → v2 MQTT
 
-## Operator admin
+## Operátori admin
 
-**Before:** [`legacy/admin.js`](legacy/admin.js) + HTTP polling via `state-sync.js`
+**Korábban:** [`legacy/admin.js`](legacy/admin.js) + HTTP-polling a `state-sync.js` használatával
 
-**Now:** Open **`/admin/`** only ([`admin/index.html`](admin/index.html))
+**Most:** csak a **`/admin/`** oldalt nyisd meg ([`admin/index.html`](admin/index.html)).
 
-1. Configure **BROKER?**, **MQTT AUTH?**, and **TOKEN?** in the header (same LAN as Mosquitto).
-2. HTTP Basic Auth on `/admin/` (see [DEPLOYMENT.md](DEPLOYMENT.md)).
-3. Pending visitor names appear under **Függő regisztrációk** via MQTT `session/registrations`.
+1. Állítsd be a fejlécben a **BROKER?**, **MQTT AUTH?** és **TOKEN?** értékét (a Mosquittóval azonos LAN-on).
+2. A `/admin/` oldalt HTTP Basic Auth védi (lásd: [DEPLOYMENT.md](DEPLOYMENT.md)).
+3. A függő látogatói nevek MQTT-n, a `session/registrations` topicban jelennek meg a **Függő regisztrációk** alatt.
 
-The files in `legacy/` are kept for reference — do not load them in production.
+A `legacy/` könyvtár fájljai csak hivatkozási célból maradnak meg — élesben ne töltsd be őket.
 
-## Quiz terminal
+## Kvízterminál
 
-**Before:** `/quiz/` with HTTP state polling
+**Korábban:** `/quiz/` HTTP-állapot-pollinggal
 
-**Now:** Point physical devices to **`/smallscreen/`**
+**Most:** a fizikai eszközöket a **`/smallscreen/`** címre irányítsd.
 
-`/quiz/` redirects automatically. Update bookmarks and kiosk startup URLs.
+`/quiz/` automatikusan átirányít. Frissítsd a könyvjelzőket és a kioszk indítási URL-jeit.
 
-## Primary display (`/display/`)
+## Elsődleges kijelző (`/display/`)
 
-**Before:** Polled `GET /api/state.php` / SSE every 500 ms
+**Korábban:** a `GET /api/state.php` / SSE lekérdezése 500 ms-onként
 
-**Now:**
+**Most:**
 
-- One **`GET /api/state.php`** on load (camera URL + initial media)
-- Live updates via MQTT: `bigscreen/video`, `bigscreen/layer`, `session/control`
+- Egyetlen **`GET /api/state.php`** betöltéskor (kamera-URL + kezdeti média)
+- Élő frissítések MQTT-n: `bigscreen/video`, `bigscreen/layer`, `session/control`
 
-Ensure the display machine has MQTT broker URL/credentials (query param `?broker=ws://…` or localStorage via operator setup).
+Gondoskodj róla, hogy a kijelző gépén be legyen állítva az MQTT-broker URL-je és hitelesítése (a `?broker=ws://…` lekérdezési paraméterrel vagy az operátori beállításon keresztüli localStorage-értékkel).
 
-## Visitor registration
+## Látogatói regisztráció
 
-No change for visitor tablets — still **`/register/`** + `POST /api/register.php`.
+A látogatói tabletek esetén nincs változás — továbbra is **`/register/`** +
+`POST /api/register.php`.
 
-Operators see new names on the MQTT admin within ~2 seconds. Requires:
+Az operátorok az új neveket körülbelül 2 másodpercen belül látják az MQTT-adminban. Ehhez szükséges:
 
-- Mosquitto running with auth (see `hardware/mosquitto/mosquitto.conf.example`)
-- Optional: `mosquitto_pub` on the PHP host, or dev-server for local preview
+- Hitelesítéssel futó Mosquitto (lásd: `hardware/mosquitto/mosquitto.conf.example`)
+- Opcionálisan `mosquitto_pub` a PHP-gépen, vagy fejlesztői szerver helyi előnézethez
 
 Environment (`.env`):
 
@@ -51,16 +52,16 @@ MQTT_BROKER_PASS=...
 
 ## Node-RED
 
-Existing `mqtt-to-state.flow.json` still bridges sensor/MQTT patches to `state.php`.
+A meglévő `mqtt-to-state.flow.json` továbbra is a szenzor-/MQTT-patcheket köti össze a `state.php` végponttal.
 
-Registration MQTT is published **directly from `register.php`** — no Node-RED change required. You may add a flow to mirror or log `session/registrations` if needed.
+A regisztrációs MQTT-üzenetet a rendszer **közvetlenül a `register.php` fájlból** teszi közzé — nincs szükség Node-RED-módosításra. Szükség esetén hozzáadhatsz flow-t a `session/registrations` tükrözéséhez vagy naplózásához.
 
-## Backward compatibility window
+## Visszamenőleges kompatibilitási időszak
 
-These remain available for integrations and tests:
+Az integrációk és tesztek számára ezek továbbra is elérhetők:
 
-- `GET /api/state.php` (with ETag / 304)
+- `GET /api/state.php` (ETag / 304 használatával)
 - `GET /api/events.php` (SSE)
 - `POST /api/register.php`
 
-Polling-based UIs are deprecated and will be removed in a future release.
+A pollingalapú felületek elavultak, és egy későbbi kiadásban eltávolítjuk őket.

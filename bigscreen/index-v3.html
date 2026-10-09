@@ -49,7 +49,7 @@
         display: block;
         width: 100%;
         height: 100%;
-        object-fit: contain;
+        object-fit: cover;
         background: var(--void-900);
       }
 
@@ -163,25 +163,6 @@
         color: var(--danger);
         opacity: 0.9;
       }
-
-      #video-quality-debug {
-        position: fixed;
-        top: var(--space-2);
-        left: var(--space-2);
-        z-index: 10000;
-        display: none;
-        padding: var(--space-2);
-        color: var(--text-primary);
-        background: var(--void-900);
-        border: 1px solid var(--cyan-400);
-        font: var(--text-xs) / 1.4 var(--font-mono);
-        pointer-events: none;
-        white-space: pre;
-      }
-
-      #video-quality-debug.is-visible {
-        display: block;
-      }
     </style>
     <script src="/shared/js/media-url.js"></script>
     <script src="https://unpkg.com/mqtt@5.10.4/dist/mqtt.min.js"></script>
@@ -215,7 +196,6 @@
     </section>
 
     <div id="mqtt-status" aria-live="polite">●</div>
-    <pre id="video-quality-debug" aria-hidden="true"></pre>
 
     <script>
       (function () {
@@ -228,7 +208,6 @@
         const videoEl = document.getElementById("layer-video-el");
         const mjpegEl = document.getElementById("layer-video-mjpeg");
         const statusEl = document.getElementById("mqtt-status");
-        const videoQualityDebug = document.getElementById("video-quality-debug");
         const celebrationLayer = document.getElementById("layer-celebration");
         const celebrationBg = document.getElementById("celebration-bg");
         const celebrationSlot = document.getElementById("celebration-slot");
@@ -243,7 +222,6 @@
           "bigscreen/video/play",
           "bigscreen/video/pause",
           "bigscreen/video/reset",
-          "bigscreen/debug/video-quality",
           "bigscreen/players",
           "bigscreen/celebration/background",
           "bigscreen/celebration/cheer",
@@ -271,8 +249,6 @@
         let cheerAudio = null;
         let cheerStarted = false;
         let lastVideo = "";
-        let videoQualityDebugEnabled = false;
-        let videoQualityTimer = null;
 
         const Mqtt = window.NanoportalMqtt;
 
@@ -512,40 +488,6 @@
           if (videoEl) videoEl.pause();
         }
 
-        function updateVideoQualityDebug() {
-          if (!videoQualityDebug || !videoQualityDebugEnabled || !videoEl) return;
-          const quality =
-            typeof videoEl.getVideoPlaybackQuality === "function"
-              ? videoEl.getVideoPlaybackQuality()
-              : null;
-          const dropped = quality ? quality.droppedVideoFrames : videoEl.webkitDroppedFrameCount;
-          const total = quality ? quality.totalVideoFrames : videoEl.webkitDecodedFrameCount;
-          videoQualityDebug.textContent = [
-            "video playback quality",
-            "src: " + (lastVideo || "(none)"),
-            "readyState: " + videoEl.readyState,
-            "droppedVideoFrames: " + String(dropped ?? 0),
-            "totalVideoFrames: " + String(total ?? 0),
-            "currentTime: " + videoEl.currentTime.toFixed(2),
-          ].join("\n");
-        }
-
-        function setVideoQualityDebug(enabled) {
-          videoQualityDebugEnabled = enabled;
-          if (videoQualityDebug) {
-            videoQualityDebug.classList.toggle("is-visible", enabled);
-            videoQualityDebug.setAttribute("aria-hidden", enabled ? "false" : "true");
-          }
-          if (videoQualityTimer != null) {
-            clearInterval(videoQualityTimer);
-            videoQualityTimer = null;
-          }
-          if (enabled) {
-            updateVideoQualityDebug();
-            videoQualityTimer = setInterval(updateVideoQualityDebug, 1000);
-          }
-        }
-
         function setPhotoSrc(raw) {
           const src = resolveImageSrc(raw);
           if (!photoImg) return;
@@ -644,13 +586,6 @@
               break;
             case "bigscreen/video/reset":
               resetVideo();
-              break;
-            case "bigscreen/debug/video-quality":
-              if (text === "toggle") {
-                setVideoQualityDebug(!videoQualityDebugEnabled);
-              } else {
-                setVideoQualityDebug(text === "on" || text === "1" || text === "true");
-              }
               break;
             case "bigscreen/players":
               players = parsePlayersJson(text);

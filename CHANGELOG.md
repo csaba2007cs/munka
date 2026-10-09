@@ -1,32 +1,32 @@
-# Changelog
+# Változásnapló
 
-## v2.0 (in progress)
+## v2.0 (folyamatban)
 
-### Added
+### Hozzáadva
 
-- MQTT-first **`/display/`** — subscribes to `bigscreen/video`, `bigscreen/layer`, `session/control`
-- **`session/registrations`** MQTT topic — pushed after each `/api/register.php` POST
-- Pending registrations panel in **`admin/index.html`**
-- Storage retention + **`GET /api/storage.php`**
-- State snapshots in **`data/snapshots/`** on lifecycle transitions + **`GET /api/sessions.php`**
-- Admin **Munkamenet-előzmények** — download / restore snapshots
+- MQTT-központú **`/display/`** — feliratkozik a `bigscreen/video`, `bigscreen/layer`, `session/control` topicokra
+- **`session/registrations`** MQTT-topic — minden `/api/register.php` POST után közzétéve
+- Függő regisztrációk panelje az **`admin/index.html`** oldalon
+- Tárolási megőrzés + **`GET /api/storage.php`**
+- Állapot-pillanatképek a `data/snapshots/` könyvtárban az életciklus-átmenetekkor + **`GET /api/sessions.php`**
+- Admin **Munkamenet-előzmények** — pillanatképek letöltése / visszaállítása
 
-### Changed
+### Módosítva
 
-- **`/quiz/`** → permanent redirect to **`/smallscreen/`**
-- Visitor admin sync via MQTT instead of 4 s HTTP poll only
+- **`/quiz/`** → végleges átirányítás a **`/smallscreen/`** címre
+- Látogatói admin-szinkronizálás MQTT-n, kizárólag a 4 másodperces HTTP-polling helyett
 
-### Removed / relocated
+### Eltávolítva / áthelyezve
 
-- **`admin/admin.js`** + **`admin/admin.css`** → **`legacy/`** (reference only)
+- **`admin/admin.js`** + **`admin/admin.css`** → **`legacy/`** (csak hivatkozási célra)
 
-### Deprecation Notice
+### Elavulási tájékoztató
 
-- `legacy/admin.js` — removed in v2.0, use `admin/index.html`
-- `quiz/` — redirect to `smallscreen/` as of v2.0
-- `display/` polling — replaced with MQTT subscription in v2.0
+- `legacy/admin.js` — v2.0-ban eltávolítva, használd az `admin/index.html` fájlt
+- `quiz/` — v2.0-tól átirányít a `smallscreen/` címre
+- `display/` polling — v2.0-ban MQTT-feliratkozás váltotta fel
 
 ## v1.x
 
-- Dual stack: HTTP polling (`state-sync.js`) + early MQTT kiosks
-- Legacy operator UI in `admin/admin.js`
+- Kettős verem: HTTP-polling (`state-sync.js`) + korai MQTT-kioszkok
+- Régi operátori felület az `admin/admin.js` fájlban

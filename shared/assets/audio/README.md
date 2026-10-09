@@ -1,6 +1,7 @@
-# Audio assets
+# Hangfájlok
 
-Place `.mp3`, `.wav`, `.ogg`, or `.m4a` files here for `api/audio.php` clip triggers and display background audio.
+Az `api/audio.php` klipindításaihoz és a kijelző háttérhangjához helyezz ide
+`.mp3`, `.wav`, `.ogg` vagy `.m4a` fájlokat.
 
 ```
 cheer_crowd.mp3  — Éljenző tömeg hang (ElevenLabs fallback)

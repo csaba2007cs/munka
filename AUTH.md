@@ -1,89 +1,89 @@
-# Nanoportal — Authentication model
+# Nanoportal — Hitelesítési modell
 
-This document describes how operator, kiosk, and visitor clients authenticate against the Nanoportal stack on a shared LAN.
+Ez a dokumentum azt ismerteti, hogyan hitelesítik magukat az operátori, kioszk- és látogatói kliensek a közös helyi hálózaton működő Nanoportal-rendszerben.
 
-## Layers
+## Rétegek
 
-| Layer | Mechanism | Protects |
+| Réteg | Mechanizmus | Védett elem |
 |-------|-----------|----------|
-| Operator UI | HTTP Basic Auth (`admin/.htaccess` + `.htpasswd`) | `/admin/` HTML/JS assets |
-| API writes | Shared secret header | `POST` to `state.php`, `upload.php`, `audio.php` |
-| Full reset | Admin header + write token | `_full_reset: true` on `state.php` |
-| MQTT | Username/password (Mosquitto) | WebSocket `:9001` and native `:1883` |
-| Registration | Open (by design) | `POST /api/register.php` — visitor self-signup |
+| Operátori felület | HTTP Basic Auth (`admin/.htaccess` + `.htpasswd`) | `/admin/` HTML/JS-erőforrások |
+| API-írások | Közös titkos fejléc | `POST` a `state.php`, `upload.php`, `audio.php` végpontokra |
+| Teljes alaphelyzet | Admin fejléc + írási token | `_full_reset: true` a `state.php` végponton |
+| MQTT | Felhasználónév/jelszó (Mosquitto) | WebSocket `:9001` és natív `:1883` |
+| Regisztráció | Szándékosan nyitott | `POST /api/register.php` — látogatói önregisztráció |
 
-## API write token
+## API-írási token
 
-Set in repo-root `.env`:
+A repó gyökerében lévő `.env` fájlban állítsd be:
 
 ```env
 NANOPORTAL_API_TOKEN=your-long-random-secret
 ```
 
-When **empty or unset**, write endpoints stay in **open LAN mode** (backward compatible for local dev).
+Ha **üres vagy nincs beállítva**, az írási végpontok **nyitott LAN-módban** maradnak (a helyi fejlesztéssel való visszamenőleges kompatibilitás miatt).
 
-When **set**, every protected `POST` must include:
+Ha **be van állítva**, minden védett `POST` kérésnek tartalmaznia kell:
 
 ```http
 X-Nanoportal-Token: <same value as NANOPORTAL_API_TOKEN>
 ```
 
-The server compares with `hash_equals()` (timing-safe).
+A szerver a `hash_equals()` függvénnyel hasonlítja össze (időzítésbiztosan).
 
-### Admin-only operations
+### Csak admin által végezhető műveletek
 
-`POST /api/state.php` with `{ "_full_reset": true }` additionally requires:
+A `{ "_full_reset": true }` törzzsel küldött `POST /api/state.php` ezen felül megköveteli:
 
 ```http
 X-Nanoportal-Admin: 1
 ```
 
-Quiz, display, and register clients never send this header, so they cannot wipe game state even if they somehow obtain the API token.
+A kvíz-, kijelző- és regisztrációs kliensek soha nem küldik ezt a fejlécet, ezért még az API-token esetleges megszerzésekor sem tudják törölni a játékállapotot.
 
-### Client configuration
+### Klienskonfiguráció
 
 **Operator (`/admin/`)**
 
-1. Log in via HTTP Basic Auth (browser challenge).
-2. Click **TOKEN?** and paste the same value as `NANOPORTAL_API_TOKEN` (stored in `localStorage` key `nanoportal.api.token`).
-3. Admin patches automatically send `X-Nanoportal-Admin: 1`.
+1. Jelentkezz be HTTP Basic Auth-tal (böngészős hitelesítési ablakkal).
+2. Kattints a **TOKEN?** gombra, és illeszd be a `NANOPORTAL_API_TOKEN` értékét (a rendszer a `nanoportal.api.token` `localStorage`-kulcsban tárolja).
+3. Az admin által küldött patchek automatikusan elküldik az `X-Nanoportal-Admin: 1` fejlécet.
 
 **Quiz / display kiosks**
 
-If `NANOPORTAL_API_TOKEN` is configured, each trusted kiosk must have the token in `localStorage` (`nanoportal.api.token`) before posting quiz answers or display updates. Untrusted visitor devices (e.g. phones on `/register/`) should **not** receive this token.
+Ha a `NANOPORTAL_API_TOKEN` be van állítva, minden megbízható kioszknak rendelkeznie kell a tokennel a `localStorage`-ban (`nanoportal.api.token`), mielőtt kvízválaszokat vagy kijelzőfrissítéseket küld. Megbízhatatlan látogatói eszközök (például a `/register/` oldalt megnyitó telefonok) **ne kapják meg** ezt a tokent.
 
 **Node-RED bridge**
 
-Add to the HTTP Request node headers:
+Add hozzá a HTTP Request node fejléceihez:
 
 ```json
 { "X-Nanoportal-Token": "<token>" }
 ```
 
-For session reset flows that call `_full_reset`, also add `"X-Nanoportal-Admin": "1"`.
+Az `_full_reset` műveletet hívó munkamenet-visszaállítási folyamatokhoz add hozzá az `"X-Nanoportal-Admin": "1"` fejlécet is.
 
-## MQTT credentials
+## MQTT-hitelesítő adatok
 
-Mosquitto must reject anonymous clients in production (`allow_anonymous false` — see `hardware/mosquitto/mosquitto.conf.example`).
+A Mosquittónak éles környezetben el kell utasítania a névtelen klienseket (`allow_anonymous false` — lásd: `hardware/mosquitto/mosquitto.conf.example`).
 
-Browsers connect via MQTT.js with username/password from `localStorage`:
+A böngészők az MQTT.js-en keresztül, a `localStorage`-ban tárolt felhasználónévvel és jelszóval csatlakoznak:
 
 - `nanoportal.mqtt.user`
 - `nanoportal.mqtt.password`
 
-Configure on the operator panel with **MQTT AUTH?** (same pattern as **BROKER?**).
+Az operátori panelen a **MQTT AUTH?** gombbal állítható be (a **BROKER?** gombbal azonos módon).
 
-Bigscreen/smallscreen kiosks need the same credentials pre-provisioned on each device if the broker requires auth.
+A bigscreen- és smallscreen-kioszkokon is előre be kell állítani ugyanezeket a hitelesítő adatokat, ha a broker hitelesítést kér.
 
-## Threat model (closed LAN)
+## Fenyegetési modell (zárt LAN)
 
-- **Visitors on Wi-Fi** can still use `/register/` and read public state via `GET /api/state.php`.
-- They **cannot** post arbitrary state, upload files, trigger audio, or full-reset without the API token.
-- They **cannot** open `/admin/` without Basic Auth credentials.
-- They **cannot** subscribe/publish MQTT without broker credentials.
+- **A Wi-Fi látogatói** továbbra is használhatják a `/register/` oldalt, és olvashatják a nyilvános állapotot a `GET /api/state.php` végponton.
+- **Nem** küldhetnek tetszőleges állapotot, nem tölthetnek fel fájlokat, nem indíthatnak hangot, és nem hajthatnak végre teljes alaphelyzetet API-token nélkül.
+- **Nem** nyithatják meg az `/admin/` oldalt Basic Auth hitelesítő adatok nélkül.
+- **Nem** iratkozhatnak fel MQTT-topicokra és nem tehetnek közzé MQTT-üzeneteket broker-hitelesítés nélkül.
 
-Rotate `NANOPORTAL_API_TOKEN`, `.htpasswd`, and Mosquitto passwords if a device is lost or a session ends.
+Egy eszköz elvesztése vagy egy munkamenet lezárása után cseréld le a `NANOPORTAL_API_TOKEN`, a `.htpasswd` és a Mosquitto jelszavait.
 
-## Dev server
+## Fejlesztői szerver
 
-`scripts/dev-server.mjs` reads `NANOPORTAL_API_TOKEN` from `.env` and applies the same checks on mirrored `/api/*.php` routes.
+Az `scripts/dev-server.mjs` a `.env` fájlból olvassa a `NANOPORTAL_API_TOKEN` értékét, és ugyanezeket az ellenőrzéseket alkalmazza a tükrözött `/api/*.php` útvonalakon.

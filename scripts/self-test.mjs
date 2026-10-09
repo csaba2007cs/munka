@@ -908,6 +908,28 @@ if (!bigscreenHtml.includes("display: none") || !bigscreenHtml.includes("positio
   fail("bigscreen/index.html: réteg display/fixed váltás hiányzik");
 } else ok("bigscreen/index.html: layer display/fixed");
 
+if (
+  !bigscreenHtml.includes('preload="auto"') ||
+  !bigscreenHtml.includes("let lastVideo") ||
+  !bigscreenHtml.includes("getVideoPlaybackQuality") ||
+  !bigscreenHtml.includes("bigscreen/debug/video-quality")
+) {
+  fail("bigscreen/index.html: video preload/cache/debug overlay hiányzik");
+} else ok("bigscreen/index.html: video preload/cache/debug overlay");
+
+const apacheMediaConfig = fs.readFileSync(
+  path.join(root, "hardware", "apache", "nanoportal-video.conf.example"),
+  "utf8",
+);
+if (
+  !apacheMediaConfig.includes("AllowOverride None") ||
+  !apacheMediaConfig.includes("EnableSendfile On") ||
+  !apacheMediaConfig.includes("EnableMMAP Off") ||
+  !apacheMediaConfig.includes('Header set Accept-Ranges "bytes"')
+) {
+  fail("Apache media config: direct range-serving beállítás hiányzik");
+} else ok("Apache media config: direct range serving");
+
 checkKioskDesignTokens("bigscreen/index.html", bigscreenHtml);
 
 for (const removed of ["bigscreen/bigscreen.js", "bigscreen/celebration.js", "bigscreen/bigscreen.css"]) {

@@ -1,10 +1,10 @@
-# Legacy Nanoportal v1 UI
+# Régi Nanoportal v1-felület
 
-These files are **not used in production** as of v2.0.
+Ezeket a fájlokat a v2.0-tól **nem használja az éles rendszer**.
 
-| File | Was |
+| Fájl | Korábbi szerep |
 |------|-----|
-| `admin.js` | HTTP-polling operator UI (superseded by `../admin/index.html`) |
-| `admin.css` | Styles for the above |
+| `admin.js` | HTTP-pollingot használó operátori felület (az `../admin/index.html` váltotta fel) |
+| `admin.css` | A fenti felület stílusai |
 
-See [../MIGRATION.md](../MIGRATION.md).
+Lásd: [../MIGRATION.md](../MIGRATION.md).

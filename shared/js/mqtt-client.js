@@ -23,6 +23,18 @@
   ];
 
   const RETAIN_TOPICS = new Set(RETAIN_TOPIC_LIST);
+  const STATE_QOS_TOPICS = new Set([
+    "bigscreen/layer",
+    "bigscreen/video",
+    "bigscreen/photo",
+    "bigscreen/players",
+    "bigscreen/celebration/background",
+    "bigscreen/celebration/cheer",
+    "smallscreen/layer",
+    "smallscreen/photo",
+    "smallscreen/video",
+    "smallscreen/quiz",
+  ]);
 
   function brokerUrl() {
     const params = new URLSearchParams(global.location.search);
@@ -73,6 +85,10 @@
     return RETAIN_TOPICS.has(topic);
   }
 
+  function defaultQos(topic) {
+    return STATE_QOS_TOPICS.has(topic) ? 1 : 0;
+  }
+
   function publish(client, topic, payload, opts) {
     opts = opts || {};
     return new Promise(function (resolve, reject) {
@@ -81,7 +97,7 @@
         return;
       }
       const retain = opts.retain !== undefined ? Boolean(opts.retain) : defaultRetain(topic);
-      const qos = opts.qos !== undefined ? opts.qos : 0;
+      const qos = opts.qos !== undefined ? opts.qos : defaultQos(topic);
       client.publish(topic, payload, { qos: qos, retain: retain }, function (err) {
         if (err) reject(err);
         else resolve(null);
@@ -91,9 +107,7 @@
 
   function subscribeAll(client, topics) {
     if (!client || !topics || !topics.length) return;
-    for (const topic of topics) {
-      client.subscribe(topic, { qos: 0 });
-    }
+    client.subscribe(topics, { qos: 1 });
   }
 
   /**
@@ -120,7 +134,7 @@
     onStatus("connecting", url);
 
     const connectOpts = {
-      reconnectPeriod: 3000,
+      reconnectPeriod: 0,
       clean: true,
       connectTimeout: 10000,
     };
@@ -137,8 +151,52 @@
     }
 
     const client = global.mqtt.connect(url, connectOpts);
+    const lastPayloadByTopic = new Map();
+    const messageQueue = [];
+    let flushTimer = null;
+    let reconnectTimer = null;
+    let reconnectDelay = 1000;
+
+    function flushMessages() {
+      flushTimer = null;
+      while (messageQueue.length) {
+        const message = messageQueue.shift();
+        onMessage(message.topic, message.text);
+      }
+    }
+
+    function scheduleFlush() {
+      if (flushTimer != null) return;
+      const run = function () {
+        flushTimer = null;
+        flushMessages();
+      };
+      if (typeof global.requestAnimationFrame === "function") {
+        flushTimer = global.setTimeout(function () {
+          global.requestAnimationFrame(run);
+        }, 100);
+      } else {
+        flushTimer = global.setTimeout(run, 100);
+      }
+    }
+
+    function scheduleReconnect() {
+      if (reconnectTimer != null) return;
+      const delay = reconnectDelay;
+      reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+      reconnectTimer = global.setTimeout(function () {
+        reconnectTimer = null;
+        onStatus("reconnecting", url);
+        client.reconnect();
+      }, delay);
+    }
 
     client.on("connect", function () {
+      if (reconnectTimer != null) {
+        global.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      reconnectDelay = 1000;
       onStatus("connected", url);
       subscribeAll(client, topics);
     });
@@ -149,14 +207,20 @@
 
     client.on("close", function () {
       onStatus("disconnected", url);
+      scheduleReconnect();
     });
 
     client.on("error", function (err) {
       onStatus("error", String(err && err.message ? err.message : err));
+      scheduleReconnect();
     });
 
     client.on("message", function (topic, message) {
-      onMessage(topic, payloadText(message));
+      const text = payloadText(message);
+      if (lastPayloadByTopic.get(topic) === text) return;
+      lastPayloadByTopic.set(topic, text);
+      messageQueue.push({ topic: topic, text: text });
+      scheduleFlush();
     });
 
     return client;
@@ -172,6 +236,7 @@
     mqttCredentials: mqttCredentials,
     payloadText: payloadText,
     defaultRetain: defaultRetain,
+    defaultQos: defaultQos,
     publish: publish,
     connect: connect,
   };

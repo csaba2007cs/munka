@@ -1,0 +1,31 @@
+# Ubuntu 24.04 Apache vhost/server configuration.
+# Install as /etc/apache2/conf-available/nanoportal-media.conf, then enable
+# with: sudo a2enconf nanoportal-media && sudo systemctl reload apache2.
+#
+#   sudo a2enmod headers mime
+#   sudo apachectl configtest
+AddType video/mp4 .mp4 .m4v
+AddType video/webm .webm
+
+SetEnvIf Request_URI "\.(mp4|m4v|webm)$" no-gzip dont-vary
+
+<Directory /var/www/html/shared/assets/video>
+  Options -Indexes
+  AllowOverride None
+  Require all granted
+  EnableSendfile On
+  EnableMMAP Off
+  Header set Accept-Ranges "bytes"
+  Header set Cache-Control "public, max-age=31536000, immutable"
+  FileETag MTime Size
+</Directory>
+
+<FilesMatch "\.(mp4|m4v)$">
+  Header set Content-Type "video/mp4"
+  Header unset Content-Disposition
+</FilesMatch>
+
+<FilesMatch "\.webm$">
+  Header set Content-Type "video/webm"
+  Header unset Content-Disposition
+</FilesMatch>

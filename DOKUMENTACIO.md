@@ -1,6 +1,6 @@
 # Nanoportal — élményszoba vezérlő rendszer
 
-Dokumentáció a helyi webszerveren futó, több képernyős és tablet-es sci-fi escape room (élményszoba) szoftvercsomaghoz. A cél: **egyetlen globális állapot** (`state.json`) valós idejű követése **lapfrissítés nélkül** (SPA + `fetch`).
+Dokumentáció a helyi webszerveren futó, több képernyős és tabletes sci-fi élményszoba-szoftvercsomaghoz. A cél: **egyetlen globális állapot** (`state.json`) valós idejű követése **lapfrissítés nélkül** (SPA + `fetch`).
 
 ---
 
@@ -9,7 +9,7 @@ Dokumentáció a helyi webszerveren futó, több képernyős és tablet-es sci-f
 - **Vezérlő VM:** Ubuntu 24.04 LTS, Apache + PHP, opcionálisan Dockerben Node-RED (MQTT, ESP32, hang, WebSocket).
 - **Adat:** első körben fájlalapú — `data/state.json`. Később cserélhető MariaDB-re ugyanazzal az API-felületi logikával.
 - **Kliensek:** admin tablet, látogatói regisztráció (`/register/`), quiz érintőkijelző, nagy TV (`display`). Mindegyik ugyanazt az állapotot olvassa/írja a `/api/state.php` (és regisztráció: `/api/register.php`) végponton keresztül.
-- ** igények vs. prototípus:** összevető backlog — [docs/roadmap-blaci.md].
+- **Igények és prototípus:** összevető feladatlista — [docs/roadmap-blaci.md].
 
 ## 2. Könyvtárstruktúra (telepítési cél: `/var/www/html/`)
 
@@ -272,7 +272,38 @@ Az üzenetek ellenőrzéséhez:
 & "$mosquitto\mosquitto_sub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 -t "#" -v -C 25
 ```
 
-### 6.1 Quiz (`/quiz/`)
+#### Videókezelés
+
+Videófájlt **nem küldünk, nem tárolunk és nem továbbítunk MQTT-n**. MQTT-n
+csak a fájlnév és a lejátszási vezérlés megy, például:
+
+```text
+bigscreen/video        -> intro.mp4
+bigscreen/video/play   -> play
+bigscreen/video/pause  -> pause
+bigscreen/video/reset  -> reset
+```
+
+A Mosquitto broker ezt fizikailag is korlátozza:
+
+```conf
+message_size_limit 65536
+max_packet_size 131072
+```
+
+A legfeljebb 4 GiB méretű, tetszőleges bemeneti formátumokat a
+`shared/assets/video/incoming/` mappába kell másolni, majd a
+`scripts/media-ingest.sh` MP4-re alakítja őket. H.264 videónál a videóstreamet
+újrakódolás nélkül másolja; más kodeknél H.264 High, `yuv420p`, AAC és
+`+faststart` beállítással transzkódol. A kész fájlok a
+`shared/assets/video/` mappába kerülnek. A script a 4 GiB feletti fájlokat
+elutasítja, és ellenőrzi, hogy a `moov` atom az első 4 KiB-en belül van.
+
+Az MQTT QoS-szabálya: a `bigscreen/layer` és `bigscreen/video` állapottémák
+QoS 1 és retained üzenetek; a gyors, pillanatnyi vezérlők, például a
+`bigscreen/video/play`, `pause` és `reset`, QoS 0 és nem retained üzenetek.
+
+### 6.1 Kvíz (`/quiz/`)
 
 - A `quiz_state` és `status` alapján rajzol: fejléc, lépésjelző, kérdés, gombok, visszajelző, jobb oldali sáv, HUD hullám + szkennelés.
 - Helytelen válasz: vizuális visszajelzés; helyes után `TOVÁBB` engedélyezve `RUNNING` mellett.

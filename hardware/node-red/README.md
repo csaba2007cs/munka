@@ -1,20 +1,20 @@
 # Node-RED — Nanoportal MQTT → state.php
 
-## Import
+## Importálás
 
-1. Nyisd meg a Node-RED szerkesztőt (helyi VM / Docker konténer).
-2. Menü → **Import** → **select a file** → `mqtt-to-state.flow.json`.
-3. Deploy.
+1. Nyisd meg a Node-RED szerkesztőt (helyi VM / Docker-konténer).
+2. Menü → **Import** → **fájl kiválasztása** → `mqtt-to-state.flow.json`.
+3. Telepítsd a flow-t (**Deploy**).
 
-Szükséges node-ok: **node-red-node-mqtt** (MQTT in), **http request** (beépített).
+Szükséges node-ok: **node-red-node-mqtt** (MQTT-bemenet), **http request** (beépített).
 
 ## Broker
 
 A flow egy **mqtt-broker** config node-ot hoz létre: `127.0.0.1:1883`. Ha a Mosquitto más címen fut, szerkeszd a broker node-ot.
 
-**MQTT képernyők és operátor:** teljes topic térkép és retain szabályok — [docs/mqtt-setup.md](../../docs/mqtt-setup.md). WebSocket a böngészőknek: **9001**.
+**MQTT-képernyők és operátor:** teljes topictérkép és retain-szabályok — [docs/mqtt-setup.md](../../docs/mqtt-setup.md). WebSocket a böngészőknek: **9001**.
 
-A **60" nagy kijelző** (`/bigscreen/`) közvetlenül MQTT-t figyel — nem a `state.php`-n keresztül. Példa publish (retained réteg):
+A **60" nagy kijelző** (`/bigscreen/`) közvetlenül MQTT-t figyel — nem a `state.php`-n keresztül. Példa közzététel (retained réteg):
 
 ```bash
 mosquitto_pub -h 127.0.0.1 -r -t bigscreen/layer -m photo
@@ -30,7 +30,7 @@ mosquitto_pub -h 127.0.0.1 -t smallscreen/photo -m "/shared/assets/images/small-
 mosquitto_pub -h 127.0.0.1 -t smallscreen/layer -m photo
 ```
 
-**Operátor tablet** (`/admin/`) — MQTT publish; a `session/control` üzeneteket a Node-RED flow továbbítja `state.php`-ba (§6.2):
+**Operátor tablet** (`/admin/`) — MQTT-közzététel; a `session/control` üzeneteket a Node-RED flow továbbítja `state.php`-ba (§6.2):
 
 ```bash
 mosquitto_pub -h 127.0.0.1 -t session/control -m start
@@ -52,7 +52,7 @@ mosquitto_pub -h 127.0.0.1 -t bigscreen/layer -m celebration
 
 Ellenőrzés: `mosquitto_pub … session/control start` után `GET /api/state.php` → `RUNNING`; a `/quiz/` oldal fogad válaszokat.
 
-A kvíz befejezésekor a kiosk `smallscreen/quiz/result` topicra küldi az eredményt (`{"score":…,"total":…}`).
+A kvíz befejezésekor a kioszk a `smallscreen/quiz/result` topicra küldi az eredményt (`{"score":…,"total":…}`).
 
 **Topic:** `nanoportal/esp32/#` (MQTT In node).
 
@@ -62,7 +62,7 @@ Példa ESP32 üzenet (JSON):
 { "device": "esp32-zone-a", "type": "motion" }
 ```
 
-A function node ebből `hardware.last_sensor_event` patch-et épít, lásd [../state-patch-examples.json](../state-patch-examples.json). A napló (`event_log`) a szerveren automatikusan készül — az admin **Hardver** fülön ellenőrizhető.
+A function node ebből `hardware.last_sensor_event` patchet épít, lásd: [../state-patch-examples.json](../state-patch-examples.json). A napló (`event_log`) a szerveren automatikusan készül — az admin **Hardver** fülén ellenőrizhető.
 
 ## STATE_URL
 
@@ -77,7 +77,7 @@ A **Build patch + HTTP opts** function node az `STATE_URL` környezeti változó
 1. Nyomd meg az **Inject** node-ot („Teszt: motion patch”).
 2. A **debug** panelen meg kell jelennie a `state.php` válaszának (`status`, `updated_at`, …).
 
-## curl ekvivalens
+## curl-megfelelő
 
 ```bash
 curl -s -X POST "http://127.0.0.1/api/state.php" \

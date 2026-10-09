@@ -21,5 +21,13 @@ admin/.htpasswd
 # Optional local assets (uncomment if you add large media and do not want them in git)
 # shared/assets/audio/
 # shared/assets/video/
+shared/assets/video/*.mp4
+shared/assets/video/*.manifest.txt
+shared/assets/video/incoming/*
+!shared/assets/video/incoming/.gitkeep
 /scripts
 /scripts
+!/scripts/
+!/scripts/media-ingest.sh
+!/scripts/media-prune.sh
+!/scripts/production-smoke-test.sh

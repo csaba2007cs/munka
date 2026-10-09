@@ -15,4 +15,11 @@ protocol websockets
 allow_anonymous false
 password_file /etc/mosquitto/passwd
 
+# MQTT carries only small control messages and media filenames.
+# Video files must be uploaded to shared/assets/video/incoming/ and
+# processed by scripts/media-ingest.sh. These limits prevent binary video
+# payloads from being published through MQTT.
+message_size_limit 65536
+max_packet_size 131072
+
 # TLS éles környezetben: listener 8883 + certfile / keyfile
