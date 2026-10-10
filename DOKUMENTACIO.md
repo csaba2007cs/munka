@@ -284,6 +284,71 @@ bigscreen/video/pause  -> pause
 bigscreen/video/reset  -> reset
 ```
 
+#### Következő videó és automatikus átmenet
+
+Az automatikus átmenethez először jelöld ki a vezérlő bigscreen példányt:
+
+```text
+http://127.0.0.1/bigscreen/?videoOwner=1
+```
+
+Állítsd be a következő, tartalom-hash alapú videófájlt retained QoS 1
+üzenetként:
+
+```powershell
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 `
+  -q 1 -r -t bigscreen/video/next -m outro-c3d4e5f6a7b8.mp4
+```
+
+A beállított következő videó törlése:
+
+```powershell
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 `
+  -q 1 -r -t bigscreen/video/next -m ""
+```
+
+A videó lejátszásának elindítása:
+
+```powershell
+& "$mosquitto\mosquitto_pub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 `
+  -t bigscreen/video/play -m play
+```
+
+Az átmeneti események élő megfigyelése:
+
+```powershell
+& "$mosquitto\mosquitto_sub.exe" -h 127.0.0.1 -p 1884 -u user1 -P Atlasz2026 `
+  -q 1 -t "bigscreen/video/events" -v
+```
+
+Várható események:
+
+- `ending_soon`: a böngésző a tényleges `duration - currentTime` érték
+  alapján körülbelül 10 másodperccel a vég előtt jelez.
+- `switched`: az új videó ténylegesen elindult (`playing` esemény).
+- `switch_failed`: a következő videó betöltése vagy lejátszása sikertelen.
+- `switch_cancelled`: a következő videó beállítását törölték vagy lecserélték.
+
+Az eseménypayload JSON, például:
+
+```json
+{
+  "event": "ending_soon",
+  "message": "intro-a1b2.mp4 will end in approximately 10 seconds and switch to outro-c3d4.mp4",
+  "current": "intro-a1b2.mp4",
+  "next": "outro-c3d4.mp4",
+  "remainingSeconds": 9.8,
+  "eventId": "event-001",
+  "playbackId": "run-001"
+}
+```
+
+Az eseménytopic nem retained, ezért a `mosquitto_sub` parancsnak már az
+esemény bekövetkezése előtt futnia kell. QoS 1 esetén előfordulhat duplikált
+kézbesítés; az `eventId` alapján lehet ezeket kiszűrni. A videó bájtjai továbbra
+sem kerülnek MQTT-re: a broker csak fájlneveket, vezérlőparancsokat és kis
+méretű állapot- vagy eseményüzeneteket továbbít.
+
 A Mosquitto broker ezt fizikailag is korlátozza:
 
 ```conf
@@ -302,6 +367,15 @@ elutasítja, és ellenőrzi, hogy a `moov` atom az első 4 KiB-en belül van.
 Az MQTT QoS-szabálya: a `bigscreen/layer` és `bigscreen/video` állapottémák
 QoS 1 és retained üzenetek; a gyors, pillanatnyi vezérlők, például a
 `bigscreen/video/play`, `pause` és `reset`, QoS 0 és nem retained üzenetek.
+
+A videóátmenethez a `bigscreen/video/next` retained QoS 1 topic egyetlen
+következő fájlnevet tárol; üres payload törli. A böngésző a tényleges
+`duration - currentTime` lejátszási pozícióból számol, és körülbelül 10
+másodperccel a vég előtt egyszer küld eseményt a nem retained
+`bigscreen/video/events` topicon. Az események `ending_soon`, `switched`,
+`switch_failed` vagy `switch_cancelled` típusúak, és `eventId` valamint
+`playbackId` mezőt tartalmaznak. Automatikus átmenetre csak egy bigscreen
+példányt jelölj ki a `?videoOwner=1` URL-paraméterrel.
 
 ### 6.1 Kvíz (`/quiz/`)
 

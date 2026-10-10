@@ -150,6 +150,36 @@ A visszaállítási oldal a `bigscreen/index-v3.html`, amely a 3. fázis tesztel
 előtti oldal pontos másolata. Az új oldal ideiglenes megkerüléséhez irányítsd
 a kioszk URL-jét a `/bigscreen/index-v3.html` címre.
 
+### 4.2 Automatikus videóátmenet
+
+Az operátor a `bigscreen/video/next` retained MQTT-topicon egyetlen következő,
+tartalom-hash alapú fájlnevet állíthat be. Az üres payload törli a beállítást.
+A bigscreen böngésző a `video.duration - video.currentTime` értéket figyeli,
+és körülbelül 10 másodperccel a tényleges vég előtt egyszer közzéteszi az
+`ending_soon` eseményt. Szüneteltetés, keresés és pufferelés nem indít
+falióra-alapú előrejelzést.
+
+Az átmenetet pontosan egy kijelölt példány végezze:
+
+```text
+http://127.0.0.1/bigscreen/?videoOwner=1
+```
+
+Az események a `bigscreen/video/events` topicon jelennek meg QoS 1-gyel,
+de nem retained üzenetként:
+
+```bash
+mosquitto_sub -h 127.0.0.1 -p 1883 \
+  -t 'bigscreen/video/events' \
+  -q 1 -v
+```
+
+Sikeres átmenet után a bigscreen a következő fájlnevet retained
+`bigscreen/video` állapotként közzéteszi, majd törli a retained
+`bigscreen/video/next` értéket. Minden esemény `eventId` és `playbackId`
+azonosítót tartalmaz; a QoS 1 miatt a fogyasztóknak kezelniük kell az esetleges
+duplikált kézbesítést.
+
 ## 5. Node-RED-híd
 
 Állítsd be a `STATE_URL` környezeti változót (például:

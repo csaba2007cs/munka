@@ -184,6 +184,7 @@
       }
     </style>
     <script src="/shared/js/media-url.js"></script>
+    <script src="/shared/js/video-transition.js"></script>
     <script src="https://unpkg.com/mqtt@5.10.4/dist/mqtt.min.js"></script>
     <script src="/shared/js/mqtt-client.js"></script>
   </head>
@@ -240,6 +241,8 @@
           "bigscreen/layer",
           "bigscreen/photo",
           "bigscreen/video",
+          "bigscreen/video/next",
+          "bigscreen/video/events",
           "bigscreen/video/play",
           "bigscreen/video/pause",
           "bigscreen/video/reset",
@@ -273,8 +276,50 @@
         let lastVideo = "";
         let videoQualityDebugEnabled = false;
         let videoQualityTimer = null;
+        let nextVideo = "";
+        let videoOwner = false;
+        let mqttClient = null;
+        let transition = null;
+        let suppressTransitionSourceUpdate = false;
 
         const Mqtt = window.NanoportalMqtt;
+
+        function isVideoOwner() {
+          const params = new URLSearchParams(window.location.search);
+          if (params.get("videoOwner") === "1" || params.get("videoOwner") === "true") return true;
+          try {
+            return window.localStorage.getItem("nanoportal.bigscreen.videoOwner") === "1";
+          } catch (_) {
+            return false;
+          }
+        }
+
+        function publishVideoEvent(data) {
+          if (!mqttClient || !mqttClient.connected || !Mqtt) return;
+          if (data && data.event === "switched" && data.current) {
+            publishCurrentVideo(data.current);
+          }
+          Mqtt.publish(mqttClient, "bigscreen/video/events", JSON.stringify(data), {
+            qos: 1,
+            retain: false,
+          }).catch(function () {});
+        }
+
+        function publishCurrentVideo(filename) {
+          if (!mqttClient || !mqttClient.connected || !Mqtt || !filename) return;
+          Mqtt.publish(mqttClient, "bigscreen/video", filename, {
+            qos: 1,
+            retain: true,
+          }).catch(function () {});
+        }
+
+        function clearRetainedNextVideo() {
+          if (!mqttClient || !mqttClient.connected || !Mqtt) return;
+          Mqtt.publish(mqttClient, "bigscreen/video/next", "", {
+            qos: 1,
+            retain: true,
+          }).catch(function () {});
+        }
 
         function setMqttStatus(state) {
           if (!statusEl) return;
@@ -497,6 +542,7 @@
           try {
             videoEl.currentTime = 0;
           } catch (_) {}
+          if (transition) transition.restart();
         }
 
         function playVideo() {
@@ -562,6 +608,10 @@
           const src = resolveVideoUrl(raw);
           if (src === lastVideo) return;
           lastVideo = src;
+          if (transition && !suppressTransitionSourceUpdate) {
+            if (transition.state.next) configureNextVideo("");
+            transition.setCurrent(String(raw || "").trim());
+          }
           if (!src) {
             if (videoEl) {
               videoEl.pause();
@@ -592,9 +642,57 @@
             }
             if (videoEl) {
               videoEl.hidden = false;
+              videoEl.loop = !nextVideo;
               videoEl.src = src;
               videoEl.load();
             }
+          }
+
+          function switchToVideo(filename) {
+            const src = resolveVideoUrl(filename);
+            if (!src || !videoEl) {
+              return Promise.reject(new Error("Üres vagy érvénytelen következő videó."));
+            }
+            if (isMjpegUrl(src)) {
+              return Promise.reject(new Error("Az automatikus átmenet csak MP4/WebM videót támogat."));
+            }
+            return new Promise(function (resolve, reject) {
+              let settled = false;
+              function cleanup() {
+                videoEl.removeEventListener("playing", onPlaying);
+                videoEl.removeEventListener("error", onError);
+              }
+              function onPlaying() {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                resolve();
+              }
+              function onError() {
+                if (settled) return;
+                settled = true;
+                cleanup();
+                reject(new Error("A következő videó nem tölthető be."));
+              }
+              videoEl.addEventListener("playing", onPlaying);
+              videoEl.addEventListener("error", onError);
+              videoEl.loop = false;
+              suppressTransitionSourceUpdate = true;
+              try {
+                setVideoSrc(filename);
+              } finally {
+                suppressTransitionSourceUpdate = false;
+              }
+              const playPromise = videoEl.play();
+              if (playPromise && typeof playPromise.catch === "function") {
+                playPromise.catch(onError);
+              }
+            });
+          }
+
+          function configureNextVideo(raw) {
+            nextVideo = String(raw || "").trim();
+            if (transition) transition.setNext(nextVideo);
           }
         }
 
@@ -611,6 +709,7 @@
 
           activeLayer = next;
           document.body.classList.toggle("video-active", next === "video");
+          if (transition) transition.setActive(next === "video");
 
           for (const key of Object.keys(LAYERS)) {
             const el = LAYERS[key];
@@ -635,6 +734,9 @@
               break;
             case "bigscreen/video":
               setVideoSrc(text);
+              break;
+            case "bigscreen/video/next":
+              configureNextVideo(text);
               break;
             case "bigscreen/video/play":
               playVideo();
@@ -674,10 +776,52 @@
           }
         }
 
+        videoOwner = isVideoOwner();
+        if (window.NanoportalVideoTransition) {
+          transition = window.NanoportalVideoTransition.createVideoTransition({
+            owner: videoOwner,
+            thresholdSeconds: 10,
+            publishEvent: publishVideoEvent,
+            clearNext: clearRetainedNextVideo,
+            setLoop: function (enabled) {
+              if (videoEl) videoEl.loop = enabled;
+            },
+            switchTo: switchToVideo,
+          });
+        }
+        if (videoEl) {
+          videoEl.addEventListener("timeupdate", function () {
+            if (!transition) return;
+            transition.updatePlayback({
+              duration: videoEl.duration,
+              currentTime: videoEl.currentTime,
+              paused: videoEl.paused,
+              seeking: videoEl.seeking,
+            });
+          });
+          videoEl.addEventListener("seeking", function () {
+            if (transition) transition.updatePlayback({ seeking: true });
+          });
+          videoEl.addEventListener("seeked", function () {
+            if (transition) transition.updatePlayback({ seeking: false });
+          });
+          videoEl.addEventListener("play", function () {
+            if (!transition) return;
+            transition.setActive(activeLayer === "video");
+            transition.updatePlayback({ paused: false });
+          });
+          videoEl.addEventListener("pause", function () {
+            if (transition) transition.updatePlayback({ paused: true });
+          });
+          videoEl.addEventListener("ended", function () {
+            if (transition) transition.ended();
+          });
+        }
+
         if (!Mqtt) {
           setMqttStatus("error");
         } else {
-          Mqtt.connect({
+          mqttClient = Mqtt.connect({
             topics: TOPICS,
             onMessage: handleTopic,
             onStatus: function (state) {

@@ -33,6 +33,7 @@ Az állapottopicok QoS 1-et és retained üzeneteket használnak:
 ```text
 bigscreen/layer
 bigscreen/video
+bigscreen/video/next
 bigscreen/photo
 bigscreen/players
 smallscreen/layer
@@ -50,6 +51,18 @@ bigscreen/video/reset
 session/control
 ```
 
+`bigscreen/video/next` retained állapottéma, amely egyetlen következő,
+tartalom-hash alapú fájlnevet tárol. Üres retained payload törli a tervezett
+átmenetet. A `bigscreen/video/events` nem retained, QoS 1 eseménytéma; ide a
+bigscreen tulajdonosa küldi az `ending_soon`, `switched`, `switch_failed` és
+`switch_cancelled` eseményeket. Minden esemény tartalmaz `eventId` és
+`playbackId` mezőt a duplikátumok szűréséhez.
+
+Az automatikus átmenetet pontosan egy bigscreen példány végezze. Ezt a
+tulajdonos kioszk URL-jében a `?videoOwner=1` paraméterrel vagy a
+`nanoportal.bigscreen.videoOwner=1` localStorage-értékkel kell kijelölni.
+Más bigscreen példányok csak megfigyelik az eseményeket.
+
 Példa:
 
 ```bash
@@ -58,6 +71,18 @@ mosquitto_pub -h 127.0.0.1 -p 1883 -u user1 -P 'PASSWORD' \
 mosquitto_pub -h 127.0.0.1 -p 1883 -u user1 -P 'PASSWORD' \
   -t bigscreen/video/play -m play
 ```
+
+Élő átmeneti értesítések megfigyelése:
+
+```bash
+mosquitto_sub -h 127.0.0.1 -p 1883 \
+  -t 'bigscreen/video/events' \
+  -q 1 -v
+```
+
+A figyelmeztetés a böngésző tényleges lejátszási pozíciója alapján, körülbelül
+10 másodperccel a vég előtt jelenik meg. Szüneteltetés vagy pufferelés közben
+nem fut külön faliórás visszaszámlálás.
 
 A pontos helyi ellenőrző parancsokat és eredményeket a
 `DOKUMENTACIO.md`.

@@ -714,6 +714,26 @@
             Gratulálás
           </button>
         </div>
+        <div class="form-stack" style="margin-top: var(--space-3)">
+          <label class="field-label" for="bigscreen-next-video">Következő videó fájlneve</label>
+          <input
+            type="text"
+            id="bigscreen-next-video"
+            placeholder="outro-a1b2c3d4e5f6.mp4"
+            autocomplete="off"
+          />
+          <div class="btn-row">
+            <button type="button" class="btn-neon" id="btn-bigscreen-next-video" disabled>
+              Következő videó beállítása
+            </button>
+            <button type="button" class="btn-neon" id="btn-bigscreen-cancel-next" disabled>
+              Átmenet törlése
+            </button>
+          </div>
+          <p id="bigscreen-video-event-status" class="section-lead" aria-live="polite">
+            Videóátmenet: nincs beállítva
+          </p>
+        </div>
       </section>
 
       <section class="admin-col" id="col-smallscreen" aria-labelledby="title-smallscreen">
@@ -877,6 +897,8 @@
         const ADMIN_TOPICS = [
           "smallscreen/quiz/result",
           "bigscreen/layer",
+          "bigscreen/video/next",
+          "bigscreen/video/events",
           "smallscreen/layer",
           "session/registrations",
           "system/node-red/heartbeat",
@@ -896,6 +918,11 @@
         const quizResultLineEl = document.getElementById("quiz-result-line");
         const brokerUrlEl = document.getElementById("broker-url");
         const btnBroker = document.getElementById("btn-broker");
+        const nextVideoInputEl = document.getElementById("bigscreen-next-video");
+        const btnSetNextVideo = document.getElementById("btn-bigscreen-next-video");
+        const btnCancelNextVideo = document.getElementById("btn-bigscreen-cancel-next");
+        const videoEventStatusEl = document.getElementById("bigscreen-video-event-status");
+        let configuredNextVideo = "";
 
         function setMqttStatus(state) {
           if (!mqttStatusEl) return;
@@ -964,6 +991,9 @@
             .forEach(function (btn) {
               btn.disabled = disabled;
             });
+          if (nextVideoInputEl) nextVideoInputEl.disabled = disabled;
+          if (btnSetNextVideo) btnSetNextVideo.disabled = disabled;
+          if (btnCancelNextVideo) btnCancelNextVideo.disabled = disabled || !configuredNextVideo;
         }
 
         function syncLayerButtons(screen) {
@@ -995,6 +1025,26 @@
           if (topic === "smallscreen/layer") {
             activeSmallLayer = t;
             syncLayerButtons("smallscreen");
+            return;
+          }
+          if (topic === "bigscreen/video/next") {
+            configuredNextVideo = String(text ?? "").trim();
+            if (nextVideoInputEl) nextVideoInputEl.value = configuredNextVideo;
+            if (btnCancelNextVideo) btnCancelNextVideo.disabled = !mqttConnected || !configuredNextVideo;
+            if (videoEventStatusEl) {
+              videoEventStatusEl.textContent = configuredNextVideo
+                ? "Következő videó: " + configuredNextVideo
+                : "Videóátmenet: nincs beállítva";
+            }
+            return;
+          }
+          if (topic === "bigscreen/video/events") {
+            try {
+              const data = JSON.parse(text);
+              if (videoEventStatusEl) {
+                videoEventStatusEl.textContent = "Videóesemény: " + String(data.message || data.event || "ismeretlen");
+              }
+            } catch (_) {}
             return;
           }
           if (topic === "session/registrations") {
@@ -2017,6 +2067,19 @@
             publish(topic, layer).catch(function () {});
           });
         });
+
+        if (btnSetNextVideo) {
+          btnSetNextVideo.addEventListener("click", function () {
+            const filename = String(nextVideoInputEl?.value || "").trim();
+            if (!filename) return;
+            publish("bigscreen/video/next", filename, { qos: 1, retain: true }).catch(function () {});
+          });
+        }
+        if (btnCancelNextVideo) {
+          btnCancelNextVideo.addEventListener("click", function () {
+            publish("bigscreen/video/next", "", { qos: 1, retain: true }).catch(function () {});
+          });
+        }
 
         if (btnBroker) {
           btnBroker.addEventListener("click", function () {

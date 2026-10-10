@@ -826,6 +826,7 @@ const extraPaths = [
   "shared/quiz-panel/panel.html",
   "admin/index.html",
   "bigscreen/index.html",
+  "shared/js/video-transition.js",
   "smallscreen/index.html",
   "hardware/mosquitto/mosquitto.conf.example",
   "hardware/node-red/mqtt-to-state.flow.json",
@@ -916,6 +917,40 @@ if (
 ) {
   fail("bigscreen/index.html: video preload/cache/debug overlay hiányzik");
 } else ok("bigscreen/index.html: video preload/cache/debug overlay");
+
+if (
+  !bigscreenHtml.includes("bigscreen/video/next") ||
+  !bigscreenHtml.includes("bigscreen/video/events") ||
+  !bigscreenHtml.includes("videoOwner") ||
+  !bigscreenHtml.includes("timeupdate") ||
+  !bigscreenHtml.includes("ended")
+) {
+  fail("bigscreen/index.html: automatikus videóátmenet hiányzik");
+} else ok("bigscreen/index.html: automatikus videóátmenet");
+
+const videoTransitionJs = fs.readFileSync(
+  path.join(root, "shared", "js", "video-transition.js"),
+  "utf8",
+);
+if (
+  !videoTransitionJs.includes("duration - state.currentTime") ||
+  !videoTransitionJs.includes("ending_soon") ||
+  !videoTransitionJs.includes("switch_failed") ||
+  !videoTransitionJs.includes("eventId")
+) {
+  fail("video-transition.js: lejátszás-alapú eseménykezelés hiányzik");
+} else ok("video-transition.js: lejátszás-alapú eseménykezelés");
+
+const transitionTest = spawnSync(
+  process.execPath,
+  [path.join(root, "scripts", "video-transition-test.mjs")],
+  { encoding: "utf8" },
+);
+if (transitionTest.status !== 0) {
+  fail("video-transition-test.mjs: viselkedési teszt sikertelen");
+} else {
+  ok("video-transition-test.mjs: viselkedési teszt");
+}
 
 const apacheMediaConfig = fs.readFileSync(
   path.join(root, "hardware", "apache", "nanoportal-video.conf.example"),
@@ -1054,6 +1089,15 @@ if (!adminHtml.includes("admin-registrations.js")) {
   fail("admin/index.html: admin-registrations.js hiányzik");
 } else ok("admin/index.html: admin-registrations.js");
 
+if (
+  !adminHtml.includes("bigscreen/video/next") ||
+  !adminHtml.includes("btn-bigscreen-next-video") ||
+  !adminHtml.includes("btn-bigscreen-cancel-next") ||
+  !adminHtml.includes("bigscreen/video/events")
+) {
+  fail("admin/index.html: következő videó vezérlés hiányzik");
+} else ok("admin/index.html: következő videó vezérlés");
+
 if (!adminHtml.includes("session-history-panel") || !adminHtml.includes("admin-sessions.js")) {
   fail("admin/index.html: munkamenet-előzmények panel hiányzik");
 } else ok("admin/index.html: session history panel");
@@ -1165,6 +1209,14 @@ if (!mqttClientJs.includes("session/registrations")) {
 if (!mqttClientJs.includes("retain") || !mqttClientJs.includes("session/control")) {
   fail("mqtt-client.js: retain publish vagy session/control hiányzik");
 } else ok("mqtt-client.js: retain policy");
+
+if (
+  !mqttClientJs.includes("bigscreen/video/next") ||
+  !mqttClientJs.includes("bigscreen/video/events") ||
+  !mqttClientJs.includes("EVENT_TOPICS")
+) {
+  fail("mqtt-client.js: videóátmeneti QoS/retain szabály hiányzik");
+} else ok("mqtt-client.js: videóátmeneti QoS/retain policy");
 
 const flowJson = fs.readFileSync(path.join(root, "hardware", "node-red", "mqtt-to-state.flow.json"), "utf8");
 if (!flowJson.includes("mobilmozi/#") || !flowJson.includes("raw.screens")) {

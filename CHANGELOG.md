@@ -4,6 +4,10 @@
 
 ### Hozzáadva
 
+- Bigscreen videóátmeneti értesítések: lejátszási pozíció alapú `ending_soon`,
+  automatikus `switched` átmenet, hibajelzés és következő videó kezelése
+- `bigscreen/video/next` retained konfiguráció és
+  `bigscreen/video/events` nem retained eseménytopic
 - MQTT-központú **`/display/`** — feliratkozik a `bigscreen/video`, `bigscreen/layer`, `session/control` topicokra
 - **`session/registrations`** MQTT-topic — minden `/api/register.php` POST után közzétéve
 - Függő regisztrációk panelje az **`admin/index.html`** oldalon

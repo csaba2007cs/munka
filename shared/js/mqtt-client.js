@@ -12,6 +12,7 @@
     "bigscreen/layer",
     "bigscreen/photo",
     "bigscreen/video",
+    "bigscreen/video/next",
     "bigscreen/players",
     "bigscreen/celebration/background",
     "bigscreen/celebration/cheer",
@@ -28,6 +29,7 @@
     "bigscreen/video",
     "bigscreen/photo",
     "bigscreen/players",
+    "bigscreen/video/next",
     "bigscreen/celebration/background",
     "bigscreen/celebration/cheer",
     "smallscreen/layer",
@@ -35,6 +37,7 @@
     "smallscreen/video",
     "smallscreen/quiz",
   ]);
+  const EVENT_TOPICS = new Set(["bigscreen/video/events"]);
 
   function brokerUrl() {
     const params = new URLSearchParams(global.location.search);
@@ -86,7 +89,7 @@
   }
 
   function defaultQos(topic) {
-    return STATE_QOS_TOPICS.has(topic) ? 1 : 0;
+    return STATE_QOS_TOPICS.has(topic) || EVENT_TOPICS.has(topic) ? 1 : 0;
   }
 
   function publish(client, topic, payload, opts) {
@@ -96,7 +99,12 @@
         reject(new Error("MQTT nincs csatlakozva."));
         return;
       }
-      const retain = opts.retain !== undefined ? Boolean(opts.retain) : defaultRetain(topic);
+      const retain =
+        opts.retain !== undefined
+          ? Boolean(opts.retain)
+          : EVENT_TOPICS.has(topic)
+            ? false
+            : defaultRetain(topic);
       const qos = opts.qos !== undefined ? opts.qos : defaultQos(topic);
       client.publish(topic, payload, { qos: qos, retain: retain }, function (err) {
         if (err) reject(err);
@@ -232,6 +240,7 @@
     LS_MQTT_PASS_KEY: LS_MQTT_PASS_KEY,
     RETAIN_TOPICS: RETAIN_TOPICS,
     RETAIN_TOPIC_LIST: RETAIN_TOPIC_LIST,
+    EVENT_TOPICS: EVENT_TOPICS,
     brokerUrl: brokerUrl,
     mqttCredentials: mqttCredentials,
     payloadText: payloadText,
